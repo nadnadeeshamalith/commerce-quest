@@ -3,7 +3,8 @@ import {
   Trophy, Star, ArrowRight, RefreshCw, CheckCircle2, 
   XCircle, BookOpen, Loader2, Award, 
   ChevronRight, Brain, ArrowLeft, X, LayoutGrid, ListChecks, History, UserCircle,
-  ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker, Heart, Flame, Skull, Sparkles, Lock, Unlock, Timer
+  ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker, Heart, Flame, Skull, Sparkles, Lock, Unlock, Timer, GraduationCap, Pencil,
+  Camera, Palette
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -206,7 +207,7 @@ const commerceQuestionBank = [
   { paperId: 'H3', id: 253, subject: "BS", question: "නවීන අලෙවිකරණයේ පියා (Father of Modern Marketing) ලෙස හැඳින්වෙන්නේ කවුද?", options: ["පීටර් ඩ්‍රකර්", "පිලිප් කොට්‍ලර් (Philip Kotler)", "හෙන්රි ෆයෝල්", "එෆ්. ඩබ්. ටේලර්"], answer: 1, explanation: "අලෙවිකරණ සංකල්ප ලොව පුරා ප්‍රචලිත කිරීම සඳහා පිලිප් කොට්‍ලර් ගේ දායකත්වය විශාලය." }
 ];
 
-// Dynamically generate the remaining PRO Levels for Commerce up to 40
+// Generate the remaining PRO Levels for Commerce up to 40
 const commerceProLevels = Array.from({length: 37}, (_, i) => ({
   paperId: `H${i+4}`, 
   id: 2004 + i, 
@@ -347,25 +348,152 @@ const scienceQuestionBank = [
   { paperId: 3, id: 337, subject: "SCI", question: "ගුරුත්වාකර්ෂණ තරංග (Gravitational Waves) මුලින්ම පුරෝකථනය කළේ කවුද?", options: ["නිව්ටන්", "අයින්ස්ටයින්", "හෝකින්", "කෙප්ලර්"], answer: 1, explanation: "ඇල්බට් අයින්ස්ටයින් සිය සාමාන්‍ය සාපේක්ෂතාවාදය හරහා 1916 දී මෙය පුරෝකථනය කළේය." },
   { paperId: 3, id: 338, subject: "SCI", question: "ශාක වලට ආලෝකය දෙසට නැමීමේ ලක්ෂණය හඳුන්වන්නේ?", options: ["ගුරුත්වාවර්තනය", "ප්‍රභාසංස්ලේෂණය", "ප්‍රභාවර්තනය", "ස්පර්ශාවර්තනය"], answer: 2, explanation: "ආලෝකය උත්තේජකයක් ලෙස ගෙන ශාක කොටස් වර්ධනය වීම ප්‍රභාවර්තනයයි." },
   { paperId: 3, id: 339, subject: "SCI", question: "රසායනික වෙනසකට (Chemical Change) උදාහරණයක් වන්නේ?", options: ["අයිස් දියවීම", "වීදුරුවක් කැඩීම", "දැව දහනය වීම", "ජලය වාෂ්ප වීම"], answer: 2, explanation: "දහනයේදී මුල් ද්‍රව්‍යය වෙනස් වී අලුත් රසායනික සංයෝගයක් (අළු/වායු) සෑදේ." },
-  { paperId: 3, id: 340, subject: "SCI", question: "පෘථිවි චුම්භක ක්ෂේත්‍රය නිපදවීමට හේතු වන පෘථිවි ස්තරය කුමක්ද?", options: ["පිටත හරය (ද්‍රව ලෝහ)", "ඇතුළත හරය (ඝන යකඩ)", "ප්‍රාවරණය", "කබොල"], answer: 0, explanation: "පෘථිවියේ පිටත හරයේ ඇති ද්‍රව යකඩ හා නිකල් වල චලනය නිසා චුම්භක ක්ෂේත්‍රය හටගනී." },
-
-  // --- SCIENCE PRO MODE (Levels H1 to H40) ---
-  { paperId: 'H1', id: 4001, subject: "SCI", question: "කළු කුහරයක (Black Hole) 'සිදුවීම් ක්ෂිතිජය' (Event Horizon) යනු කුමක්ද?", options: ["එහි කේන්ද්‍රය", "ආලෝකයට පවා ගැලවිය නොහැකි සීමාව", "එය වටා ඇති තරු පද්ධතිය", "එහි උෂ්ණත්වය උපරිම වන ස්ථානය"], answer: 1, explanation: "සිදුවීම් ක්ෂිතිජය යනු කළු කුහරයේ ගුරුත්වාකර්ෂණය කොතරම් ප්‍රබලද යත් ආලෝකයට පවා ඉන් ගැලවිය නොහැකි සීමාවයි." },
-  { paperId: 'H2', id: 4002, subject: "SCI", question: "ක්වොන්ටම් භෞතිකයේ 'Quantum Entanglement' යන්නෙන් අදහස් වන්නේ?", options: ["අංශු දෙකක් ගැටීම", "දුර නොසලකා අංශු දෙකක් අතර ඇතිවන ක්ෂණික අන්තර්ක්‍රියාව", "ආලෝකයේ වේගය ඉක්මවා යාම", "පරමාණුක න්‍යෂ්ටි බිඳ වැටීම"], answer: 1, explanation: "එක් අංශුවක තත්ත්වය වෙනස් වන විට, කෙතරම් දුරකින් වුවද අනෙක් අංශුවද ඊට අනුරූපව ක්ෂණිකව වෙනස් වීමයි." },
-  { paperId: 'H3', id: 4003, subject: "SCI", question: "CRISPR-Cas9 තාක්ෂණය මූලිකව භාවිතා වන්නේ කුමක් සඳහාද?", options: ["නව මූලද්‍රව්‍ය සෑදීමට", "ජාන සංස්කරණයට (Gene Editing)", "අභ්‍යවකාශ ගවේෂණයට", "සුපිරි පරිගණක සැදීමට"], answer: 1, explanation: "CRISPR යනු ජීවීන්ගේ DNA ඉතා නිවැරදිව කපා ඉවත් කිරීමට හෝ වෙනස් කිරීමට භාවිතා කරන ජාන සංස්කරණ තාක්ෂණයකි." }
+  { paperId: 3, id: 340, subject: "SCI", question: "පෘථිවි චුම්භක ක්ෂේත්‍රය නිපදවීමට හේතු වන පෘථිවි ස්තරය කුමක්ද?", options: ["පිටත හරය (ද්‍රව ලෝහ)", "ඇතුළත හරය (ඝන යකඩ)", "ප්‍රාවරණය", "කබොල"], answer: 0, explanation: "පෘථිවියේ පිටත හරයේ ඇති ද්‍රව යකඩ හා නිකල් වල චලනය නිසා චුම්භක ක්ෂේත්‍රය හටගනී." }
 ];
 
-// Dynamically generate the remaining PRO Levels for Science up to 40
-const scienceProLevels = Array.from({length: 37}, (_, i) => ({
-  paperId: `H${i+4}`, 
-  id: 4004 + i, 
+// Generate the remaining PRO Levels for Science up to 40
+const scienceProLevels = Array.from({length: 40}, (_, i) => ({
+  paperId: `H${i+1}`, 
+  id: 4001 + i, 
   subject: "SCI-PRO", 
-  question: `මෙම විද්‍යා අභියෝගය ජයගැනීමට නිවැරදි පිළිතුර තෝරන්න. (Advanced Science Challenge ${i+4})`, 
+  question: `මෙම විද්‍යා අභියෝගය ජයගැනීමට නිවැරදි පිළිතුර තෝරන්න. (Advanced Science Challenge ${i+1})`, 
   options: ["වැරදි පිළිතුරක්", "නිවැරදි පිළිතුර", "තවත් වැරදි එකක්", "මෙයත් වැරදියි"], 
   answer: 1, 
   explanation: `ඔබ මෙම අභියෝගය සාර්ථකව අවසන් කළා!`
 }));
+// Override first few 
+scienceProLevels[0] = { paperId: 'H1', id: 4001, subject: "SCI", question: "කළු කුහරයක (Black Hole) 'සිදුවීම් ක්ෂිතිජය' (Event Horizon) යනු කුමක්ද?", options: ["එහි කේන්ද්‍රය", "ආලෝකයට පවා ගැලවිය නොහැකි සීමාව", "එය වටා ඇති තරු පද්ධතිය", "එහි උෂ්ණත්වය උපරිම වන ස්ථානය"], answer: 1, explanation: "සිදුවීම් ක්ෂිතිජය යනු කළු කුහරයේ ගුරුත්වාකර්ෂණය කොතරම් ප්‍රබලද යත් ආලෝකයට පවා ඉන් ගැලවිය නොහැකි සීමාවයි." };
+scienceProLevels[1] = { paperId: 'H2', id: 4002, subject: "SCI", question: "ක්වොන්ටම් භෞතිකයේ 'Quantum Entanglement' යන්නෙන් අදහස් වන්නේ?", options: ["අංශු දෙකක් ගැටීම", "දුර නොසලකා අංශු දෙකක් අතර ඇතිවන ක්ෂණික අන්තර්ක්‍රියාව", "ආලෝකයේ වේගය ඉක්මවා යාම", "පරමාණුක න්‍යෂ්ටි බිඳ වැටීම"], answer: 1, explanation: "එක් අංශුවක තත්ත්වය වෙනස් වන විට, කෙතරම් දුරකින් වුවද අනෙක් අංශුවද ඊට අනුරූපව ක්ෂණිකව වෙනස් වීමයි." };
+scienceProLevels[2] = { paperId: 'H3', id: 4003, subject: "SCI", question: "CRISPR-Cas9 තාක්ෂණය මූලිකව භාවිතා වන්නේ කුමක් සඳහාද?", options: ["නව මූලද්‍රව්‍ය සෑදීමට", "ජාන සංස්කරණයට (Gene Editing)", "අභ්‍යවකාශ ගවේෂණයට", "සුපිරි පරිගණක සැදීමට"], answer: 1, explanation: "CRISPR යනු ජීවීන්ගේ DNA ඉතා නිවැරදිව කපා ඉවත් කිරීමට හෝ වෙනස් කිරීමට භාවිතා කරන ජාන සංස්කරණ තාක්ෂණයකි." };
+
 const fullScienceBank = [...scienceQuestionBank, ...scienceProLevels];
+
+
+// ==========================================
+// 3. GRADE 5 SCHOLARSHIP BANK
+// ==========================================
+const grade5QuestionBank = [
+  // --- PAPER 1 (40 Questions) ---
+  { paperId: 1, id: 501, subject: "G5", question: "ශ්‍රී ලංකාවේ ජාතික පුෂ්පය කුමක්ද?", options: ["නිල් මානෙල්", "පිච්ච", "නෙළුම්", "රෝස"], answer: 0, explanation: "ශ්‍රී ලංකාවේ ජාතික පුෂ්පය නිල් මානෙල් මලයි." },
+  { paperId: 1, id: 502, subject: "G5", question: "දළදා මාලිගාව පිහිටි නගරය කුමක්ද?", options: ["කොළඹ", "මහනුවර", "ගාල්ල", "අනුරාධපුරය"], answer: 1, explanation: "ශ්‍රී දළදා මාලිගාව මහනුවර නගරයේ පිහිටා ඇත." },
+  { paperId: 1, id: 503, subject: "G5", question: "අපේ ජාතික පක්ෂියා කවුද?", options: ["මොනරා", "වළිකුකුළා", "ගිරවා", "මයිනා"], answer: 1, explanation: "ශ්‍රී ලංකා ජාතික පක්ෂියා වළිකුකුළා වේ." },
+  { paperId: 1, id: 504, subject: "G5", question: "1 කිලෝමීටරයකට මීටර් කීයක් තිබේද?", options: ["100", "1000", "10", "10000"], answer: 1, explanation: "එක් කිලෝමීටරයක් යනු මීටර් 1000 කි." },
+  { paperId: 1, id: 505, subject: "G5", question: "ශ්‍රී ලංකාවේ ප්‍රථම විධායක ජනාධිපතිවරයා කවුද?", options: ["ඩී. එස්. සේනානායක", "ජේ. ආර්. ජයවර්ධන", "විලියම් ගොපල්ලව", "මහින්ද රාජපක්ෂ"], answer: 1, explanation: "1978 දී ජේ. ආර්. ජයවර්ධන මහතා ප්‍රථම විධායක ජනාධිපති විය." },
+  { paperId: 1, id: 506, subject: "G5", question: "5 x 8 හි අගය කීයද?", options: ["35", "40", "45", "50"], answer: 1, explanation: "5 වරක් 8 යනු 40 කි." },
+  { paperId: 1, id: 507, subject: "G5", question: "ශ්‍රී ලංකාවේ ජාතික වෘක්ෂය කුමක්ද?", options: ["බෝ", "නා", "පොල්", "අඹ"], answer: 1, explanation: "ශ්‍රී ලංකාවේ ජාතික වෘක්ෂය නා (නාග) ගසයි." },
+  { paperId: 1, id: 508, subject: "G5", question: "ඉර පායන දිශාව කුමක්ද?", options: ["බස්නාහිර", "නැගෙනහිර", "උතුර", "දකුණ"], answer: 1, explanation: "සූර්යයා උදෑසන නැගෙනහිර දිශාවෙන් පායයි." },
+  { paperId: 1, id: 509, subject: "G5", question: "රුවන්වැලිසෑය ඉදිකළ රජතුමා කවුද?", options: ["දුටුගැමුණු රජතුමා", "දේවානම්පියතිස්ස රජතුමා", "වළගම්බා රජතුමා", "පරාක්‍රමබාහු රජතුමා"], answer: 0, explanation: "රුවන්වැලි මහා සෑය දුටුගැමුණු රජතුමා විසින් ඉදිකරන ලදී." },
+  { paperId: 1, id: 510, subject: "G5", question: "කිරි වල අඩංගු ප්‍රධාන පෝෂකය කුමක්ද?", options: ["යකඩ", "කැල්සියම්", "විටමින් C", "කාබෝහයිඩ්‍රේට්"], answer: 1, explanation: "අස්ථි හා දත් වර්ධනයට අවශ්‍ය කැල්සියම් කිරි වල බහුලව ඇත." },
+  { paperId: 1, id: 511, subject: "G5", question: "ශ්‍රී ලංකාවේ දිගම ගඟ කුමක්ද?", options: ["කැළණි ගඟ", "වළවේ ගඟ", "මහවැලි ගඟ", "කළු ගඟ"], answer: 2, explanation: "කිලෝමීටර් 335ක් දිග මහවැලි ගඟ ලංකාවේ දිගම ගඟයි." },
+  { paperId: 1, id: 512, subject: "G5", question: "25 + 17 හි අගය කීයද?", options: ["32", "42", "45", "52"], answer: 1, explanation: "25 සහ 17 එකතු කළ විට 42 ලැබේ." },
+  { paperId: 1, id: 513, subject: "G5", question: "ජාතික ගීය රචනා කළේ කවුද?", options: ["පණ්ඩිත අමරදේව", "ආනන්ද සමරකෝන්", "මහගම සේකර", "කුමාරතුංග මුනිදාස"], answer: 1, explanation: "ශ්‍රී ලංකා මාතා ජාතික ගීය ආනන්ද සමරකෝන් මහතා විසින් රචනා කරන ලදී." },
+  { paperId: 1, id: 514, subject: "G5", question: "පෘථිවියේ එකම ස්වභාවික උපග්‍රහයා කවුද?", options: ["ඉරු", "සඳු", "අඟහරු", "තරු"], answer: 1, explanation: "පෘථිවිය වටා භ්‍රමණය වන එකම ස්වභාවික උපග්‍රහයා චන්ද්‍රයා (සඳ) ය." },
+  { paperId: 1, id: 515, subject: "G5", question: "මිනිස් සිරුරේ ඇති සංවේදී අවයව (ඉන්ද්‍රියන්) ගණන කීයද?", options: ["3", "4", "5", "6"], answer: 2, explanation: "ඇස, කන, නාසය, දිව සහ සම යනුවෙන් සංවේදී ඉන්ද්‍රියන් 5ක් ඇත." },
+  { paperId: 1, id: 516, subject: "G5", question: "රැයක් හා දවාලක් ඇතිවීමට හේතුව කුමක්ද?", options: ["පෘථිවිය සූර්යයා වටා යාම", "පෘථිවිය තමා වටා කැරකීම", "සඳ පෘථිවිය වටා යාම", "වලාකුළු"], answer: 1, explanation: "පෘථිවිය සිය අක්ෂය වටා භ්‍රමණය වීම නිසා රෑ දාවල් ඇතිවේ." },
+  { paperId: 1, id: 517, subject: "G5", question: "100 න් 35 ක් අඩු කළ විට පිළිතුර?", options: ["55", "65", "75", "45"], answer: 1, explanation: "100 - 35 = 65." },
+  { paperId: 1, id: 518, subject: "G5", question: "ජලයේ දියවන විටමින් වර්ගයක්?", options: ["විටමින් A", "විටමින් C", "විටමින් D", "විටමින් E"], answer: 1, explanation: "විටමින් B සහ C ජලයේ දියවන අතර අනෙක්වා මේදයේ දියවේ." },
+  { paperId: 1, id: 519, subject: "G5", question: "ශ්‍රී ලංකාවේ මුදල් නෝට්ටු නිකුත් කරන්නේ කවුරුන්ද?", options: ["ලංකා බැංකුව", "ශ්‍රී ලංකා මහ බැංකුව", "රජය", "ජනාධිපති"], answer: 1, explanation: "ශ්‍රී ලංකා මහ බැංකුවට පමණක් මුදල් නෝට්ටු නිකුත් කිරීමේ බලය ඇත." },
+  { paperId: 1, id: 520, subject: "G5", question: "උභයජීවී සතෙකුට උදාහරණයක්?", options: ["මාළුවා", "ගෙම්බා", "කුරුල්ලා", "බල්ලා"], answer: 1, explanation: "ජලයේත් ගොඩබිමත් ජීවත් විය හැකි සතුන් උභයජීවීන් (උදා: ගෙම්බා) වේ." },
+  { paperId: 1, id: 521, subject: "G5", question: "ශ්‍රී ලංකාවේ උසම කන්ද කුමක්ද?", options: ["සමනල කන්ද", "පිදුරුතලාගල", "හග්ගල", "නමුණුකුල"], answer: 1, explanation: "පිදුරුතලාගල ලංකාවේ උසම කන්දයි." },
+  { paperId: 1, id: 522, subject: "G5", question: "මකුළුවාට පාද කීයක් තිබේද?", options: ["6", "8", "10", "4"], answer: 1, explanation: "කෘමීන්ට පාද 6ක් ඇති අතර මකුළුවන්ට පාද 8ක් ඇත." },
+  { paperId: 1, id: 523, subject: "G5", question: "සතියකට දින කීයක් තිබේද?", options: ["5", "6", "7", "8"], answer: 2, explanation: "සතියකට දින 7 කි." },
+  { paperId: 1, id: 524, subject: "G5", question: "දේදුන්නක වර්ණ කීයක් තිබේද?", options: ["5", "6", "7", "8"], answer: 2, explanation: "දේදුන්නේ වර්ණ 7 ක් ඇත." },
+  { paperId: 1, id: 525, subject: "G5", question: "ශ්‍රී ලංකාවේ ප්‍රථම අගමැතිවරයා කවුද?", options: ["ඩී. එස්. සේනානායක", "එස්. ඩබ්. ආර්. ඩී. බණ්ඩාරනායක", "ඩඩ්ලි සේනානායක", "සිරිමාවෝ බණ්ඩාරනායක"], answer: 0, explanation: "නිදහස් ශ්‍රී ලංකාවේ ප්‍රථම අගමැති ඩී. එස්. සේනානායක මහතාය." },
+  { paperId: 1, id: 526, subject: "G5", question: "63 බෙදීම 9 හි අගය?", options: ["6", "7", "8", "9"], answer: 1, explanation: "63 / 9 = 7." },
+  { paperId: 1, id: 527, subject: "G5", question: "බෞද්ධයන්ගේ පූජනීය දිනය කුමක්ද?", options: ["ඉරිදා", "පෝය දිනය", "නත්තල් දිනය", "රාමසාන්"], answer: 1, explanation: "පසළොස්වක පෝය දිනය බෞද්ධයන්ගේ පූජනීය දිනයයි." },
+  { paperId: 1, id: 528, subject: "G5", question: "ශ්‍රී ලංකාවේ ජාතික ක්‍රීඩාව කුමක්ද?", options: ["ක්‍රිකට්", "එල්ලේ", "වොලිබෝල්", "රග්බි"], answer: 2, explanation: "ශ්‍රී ලංකාවේ ජාතික ක්‍රීඩාව වොලිබෝල් වේ." },
+  { paperId: 1, id: 529, subject: "G5", question: "අපේ ජාතික කොඩියේ සිංහයා අතින් ගෙන සිටින්නේ කුමක්ද?", options: ["පලිහක්", "කඩුවක්", "ඊතලයක්", "මලක්"], answer: 1, explanation: "සිංහයා අත කඩුවක් ඇත." },
+  { paperId: 1, id: 530, subject: "G5", question: "ක්ෂීරපායී සතෙකු නොවන්නේ කවුද?", options: ["වවුලා", "තල්මසා", "මෝරා", "කිකිළි"], answer: 3, explanation: "කිකිළි යනු පක්ෂියෙකි, ඇය බිත්තර දමයි." },
+  { paperId: 1, id: 531, subject: "G5", question: "ලෝකයේ විශාලතම සාගරය කුමක්ද?", options: ["ඉන්දියන් සාගරය", "අත්ලාන්තික් සාගරය", "පැසිෆික් සාගරය", "ආක්ටික් සාගරය"], answer: 2, explanation: "පැසිෆික් සාගරය ලොව විශාලතම සාගරයයි." },
+  { paperId: 1, id: 532, subject: "G5", question: "12 x 12 කීයද?", options: ["144", "124", "122", "142"], answer: 0, explanation: "12 වරක් 12 යනු 144 කි." },
+  { paperId: 1, id: 533, subject: "G5", question: "අපේ අසල්වැසි රට කුමක්ද?", options: ["ඉන්දියාව", "ජපානය", "ඇමරිකාව", "ඕස්ට්‍රේලියාව"], answer: 0, explanation: "ශ්‍රී ලංකාවට ආසන්නතම රට ඉන්දියාවයි." },
+  { paperId: 1, id: 534, subject: "G5", question: "ගසක ආහාර නිපදවන කොටස කුමක්ද?", options: ["මුල", "කඳ", "කොළය (පත්‍රය)", "මල"], answer: 2, explanation: "පත්‍ර මගින් සූර්යාලෝකය යොදාගෙන ආහාර නිපදවයි." },
+  { paperId: 1, id: 535, subject: "G5", question: "ශ්‍රී ලංකාවේ වාණිජ අගනුවර කුමක්ද?", options: ["මහනුවර", "ශ්‍රී ජයවර්ධනපුර කෝට්ටේ", "කොළඹ", "ගාල්ල"], answer: 2, explanation: "පරිපාලන අගනුවර කෝට්ටේ වුවත් වාණිජ අගනුවර කොළඹ වේ." },
+  { paperId: 1, id: 536, subject: "G5", question: "450 ට 150 ක් එකතු කළ විට?", options: ["500", "600", "700", "550"], answer: 1, explanation: "450 + 150 = 600." },
+  { paperId: 1, id: 537, subject: "G5", question: "සීගිරිය කුමන හැඩයකින් යුක්තද?", options: ["ඝණ්ඨාකාර", "බුබ්බුලාකාර", "ජලබුබුලාකාර", "ඝටාකාර"], answer: 2, explanation: "සීගිරිය ජලබුබුලක හැඩයෙන් යුක්ත වේ." },
+  { paperId: 1, id: 538, subject: "G5", question: "ඔක්සිජන් වායුව අපට ලැබෙන්නේ ප්‍රධාන වශයෙන් කවරෙකුගෙන්ද?", options: ["සතුන්ගෙන්", "ශාක වලින්", "පසෙන්", "ජලයෙන්"], answer: 1, explanation: "ශාක ප්‍රභාසංස්ලේෂණයේදී ඔක්සිජන් පිටකරයි." },
+  { paperId: 1, id: 539, subject: "G5", question: "අයිස් දිය වූ විට ලැබෙන්නේ කුමක්ද?", options: ["වාෂ්ප", "ජලය", "හිම", "පින්න"], answer: 1, explanation: "ඝන අයිස් දිය වූ විට ද්‍රව ජලය ලැබේ." },
+  { paperId: 1, id: 540, subject: "G5", question: "සිංහල හෝඩියේ අකුරු කීයක් තිබේද?", options: ["54", "60", "61", "58"], answer: 1, explanation: "නව සිංහල සම්මත හෝඩියේ අකුරු 60 ක් ඇත." }
+];
+
+const grade5ProLevels = Array.from({length: 40}, (_, i) => ({
+  paperId: `H${i+1}`, 
+  id: 5000 + i, 
+  subject: "G5-PRO", 
+  question: `මෙම අභියෝගය ජයගැනීමට නිවැරදි පිළිතුර තෝරන්න. (Grade 5 PRO Level ${i+1})`, 
+  options: ["වැරදි පිළිතුරක්", "නිවැරදි පිළිතුර", "තවත් වැරදි එකක්", "මෙයත් වැරදියි"], 
+  answer: 1, 
+  explanation: `ඔබ මෙම අභියෝගය සාර්ථකව අවසන් කළා!`
+}));
+// Override first few for G5 Pro
+grade5ProLevels[0] = { paperId: 'H1', id: 5001, subject: "G5-PRO", question: "දිනකට පැය කීයක් තිබේද?", options: ["12", "20", "24", "48"], answer: 2, explanation: "එක් දිනකට පැය 24 කි." };
+grade5ProLevels[1] = { paperId: 'H2', id: 5002, subject: "G5-PRO", question: "මිනිස් සිරුරේ අස්ථි (ඇට) කීයක් තිබේද?", options: ["100", "206", "300", "50"], answer: 1, explanation: "වැඩිහිටි මිනිසෙකුගේ සිරුරේ අස්ථි 206 ක් ඇත." };
+grade5ProLevels[2] = { paperId: 'H3', id: 5003, subject: "G5-PRO", question: "සූර්යයා යනු කුමක්ද?", options: ["ග්‍රහලෝකයක්", "උල්කාවක්", "තරුවක්", "චන්ද්‍රයෙක්"], answer: 2, explanation: "සූර්යයා යනු අපට ආසන්නතම තරුවයි." };
+
+const fullGrade5Bank = [...grade5QuestionBank, ...grade5ProLevels];
+
+// ==========================================
+// 4. A/L ARTS (MEDIA) QUESTION BANK
+// ==========================================
+const mediaQuestionBank = [
+  // --- PAPER 1 (40 Questions) ---
+  { paperId: 1, id: 601, subject: "MED", question: "සන්නිවේදනය යන වචනය බිහිවූ 'Communis' යන ලතින් වචනයේ අර්ථය කුමක්ද?", options: ["සමාජය", "පොදු (Common)", "අදහස් හුවමාරුව", "භාෂාව"], answer: 1, explanation: "'Communis' යන ලතින් වචනයේ අර්ථය 'පොදු' යන්නයි. අදහසක් දෙපිරිසක් අතර පොදු තත්ත්වයකට පත්කිරීම මෙයින් හැඳින්වේ." },
+  { paperId: 1, id: 602, subject: "MED", question: "'සන්නිවේදනය යනු අර්ථය පිළිබඳ හවුල්කාරිත්වයක් ගොඩනැගීමයි' යනුවෙන් පැවසුවේ කවුද?", options: ["ඩෙනිස් මැක්වෙල්", "විල්බර් ශ්‍රාම්", "හැරල්ඩ් ලාස්වෙල්", "මාෂල් මැක්ලූහන්"], answer: 1, explanation: "සුප්‍රකට සන්නිවේදන විද්‍යාඥ විල්බර් ශ්‍රාම් විසින් මෙම අර්ථකථනය ලබා දී ඇත." },
+  { paperId: 1, id: 603, subject: "MED", question: "ඝෝෂාව (Noise) යන සංකල්පය ප්‍රථම වරට හඳුන්වා දුන් සන්නිවේදන ආකෘතිය කුමක්ද?", options: ["ලාස්වෙල් ආකෘතිය", "ශ්‍රාම් ආකෘතිය", "ශැනන් හා වීවර් ආකෘතිය", "බර්ලෝගේ ආකෘතිය"], answer: 2, explanation: "1949 දී ගණිතමය ආකෘතියක් ලෙස ඉදිරිපත් කළ ශැනන්-වීවර් ආකෘතිය මගින් ඝෝෂාව හඳුන්වා දුන්නේය." },
+  { paperId: 1, id: 604, subject: "MED", question: "මාෂල් මැක්ලූහන් විසින් හඳුන්වා දුන් 'ගෝලීය ගම්මානය' (Global Village) සංකල්පයට මූලික වූ සාධකය කුමක්ද?", options: ["මුද්‍රණ තාක්ෂණය", "විද්‍යුත් මාධ්‍යවල වර්ධනය (රූපවාහිනිය/ගුවන්විදුලිය)", "පුවත්පත් කලාව", "ප්‍රවාහන දියුණුව"], answer: 1, explanation: "විද්‍යුත් මාධ්‍ය හරහා මුළු ලෝකයම එක් ගම්මානයක් සේ එකිනෙකා හා සම්බන්ධ වන බව ඔහු පැවසීය." },
+  { paperId: 1, id: 605, subject: "MED", question: "'මාධ්‍යය යනු පණිවිඩයයි' (The medium is the message) යන සුප්‍රසිද්ධ ප්‍රකාශය කළේ කවුද?", options: ["විල්බර් ශ්‍රාම්", "කර්ට් ලෙවින්", "මාෂල් මැක්ලූහන්", "ඩොනල්ඩ් ෂෝ"], answer: 2, explanation: "පණිවිඩයේ අන්තර්ගතයට වඩා එය රැගෙන යන මාධ්‍යයෙහි ස්වභාවය මිනිසුන්ට බලපාන බව මැක්ලූහන් පැහැදිලි කළේය." },
+  { paperId: 1, id: 606, subject: "MED", question: "ලොව ප්‍රථම වරට අච්චුකුට්ටි (Movable Type) මුද්‍රණ යන්ත්‍රය නිපදවූයේ කවුද?", options: ["අයිසැක් නිව්ටන්", "ජොහැන්නස් ගුටෙන්බර්ග්", "ගැලීලියෝ ගැලලි", "තෝමස් එඩිසන්"], answer: 1, explanation: "15 වන සියවසේදී ජර්මනියේ ජොහැන්නස් ගුටෙන්බර්ග් විසින් මෙම මුද්‍රණ යන්ත්‍රය නිර්මාණය කළේය." },
+  { paperId: 1, id: 607, subject: "MED", question: "ශ්‍රී ලංකාවේ මුද්‍රණය වූ ප්‍රථම පුවත්පත වන 'The Colombo Journal' ආරම්භ කළ වර්ෂය කුමක්ද?", options: ["1802", "1832", "1862", "1905"], answer: 1, explanation: "1832 දී ඉංග්‍රීසි ජාතික ආණ්ඩුකාරවරයාගේ අනුග්‍රහයෙන් මෙය ආරම්භ විය." },
+  { paperId: 1, id: 608, subject: "MED", question: "ශ්‍රී ලංකාවේ ආරම්භ කළ ප්‍රථම ස්වාධීන සිංහල පුවත්පත ලෙස සැලකෙන්නේ කුමක්ද?", options: ["මාසික ත්‍යාගය", "දිනමිණ", "ලක්මිණි පහන", "සිළුමිණ"], answer: 2, explanation: "1862 සැප්තැම්බර් 11 වන දින ආරම්භ වූ 'ලක්මිණි පහන' ප්‍රථම ස්වාධීන සිංහල පුවත්පත වේ." },
+  { paperId: 1, id: 609, subject: "MED", question: "පුවත්පතක කතුවැකියෙන් (Editorial) ප්‍රධාන වශයෙන් නිරූපණය වන්නේ කුමක්ද?", options: ["පාඨකයන්ගේ අදහස්", "පුවත්පතේ නිල ප්‍රතිපත්තිය හා මතය", "දෛනික ප්‍රවෘත්ති සාරාංශය", "වෙළඳ දැන්වීම්"], answer: 1, explanation: "පුවත්පතේ කර්තෘ විසින් සමකාලීන ගැටලුවක් පිළිබඳව ආයතනයේ නිල මතය කතුවැකියෙන් ඉදිරිපත් කරයි." },
+  { paperId: 1, id: 610, subject: "MED", question: "මුල්වරට සිනමා ප්‍රදර්ශනයක් පවත්වමින් ලෝක සිනමාව ආරම්භ කළේ කුමන රටේද?", options: ["ඇමරිකාව", "ඉන්දියාව", "ප්‍රංශය", "එංගලන්තය"], answer: 2, explanation: "1895 දී ප්‍රංශයේ පැරිස් නුවරදී ලූමියර් සහෝදරයින් විසින් ප්‍රථම වරට චිත්‍රපට ප්‍රදර්ශනයක් සිදු කරන ලදී." },
+  { paperId: 1, id: 611, subject: "MED", question: "ලාංකීය සිනමාවේ ප්‍රථම කතානාද චිත්‍රපටය කුමක්ද?", options: ["රේඛාව", "අශෝකමාලා", "කඩවුණු පොරොන්දුව", "සිරිසඟබෝ"], answer: 2, explanation: "බී.ඒ.ඩබ්. ජයමාන්න විසින් අධ්‍යක්ෂණය කළ 'කඩවුණු පොරොන්දුව' ලංකාවේ පළමු කතානාද චිත්‍රපටයයි." },
+  { paperId: 1, id: 612, subject: "MED", question: "'කඩවුණු පොරොන්දුව' චිත්‍රපටය ප්‍රථම වරට තිරගත වූ වර්ෂය කුමක්ද?", options: ["1932", "1947", "1956", "1979"], answer: 1, explanation: "1947 ජනවාරි 21 වන දින මෙය තිරගත කිරීම ආරම්භ විය." },
+  { paperId: 1, id: 613, subject: "MED", question: "ශ්‍රී ලංකාවේ ප්‍රථම ගුවන් විදුලි විකාශනය ආරම්භ වූ වර්ෂය කුමක්ද?", options: ["1921", "1925", "1948", "1967"], answer: 1, explanation: "එඩ්වඩ් හාපර් ගේ මූලිකත්වයෙන් 1925 දී කොළඹ ගුවන්විදුලි සේවය ආරම්භ විය." },
+  { paperId: 1, id: 614, subject: "MED", question: "රේඩියෝ සිලෝන් (Radio Ceylon) ආයතනය ශ්‍රී ලංකා ගුවන් විදුලි සංස්ථාව (SLBC) බවට පත් වූයේ කිනම් වසරේද?", options: ["1967", "1972", "1978", "1982"], answer: 0, explanation: "1967 අංක 37 දරන පනතින් එය සංස්ථාවක් බවට පත් විය." },
+  { paperId: 1, id: 615, subject: "MED", question: "ලාංකීය රූපවාහිනී ඉතිහාසයේ ආරම්භය සනිටුහන් කළ ස්වාධීන රූපවාහිනී සේවය (ITN) ආරම්භ වූයේ කවදාද?", options: ["1979", "1982", "1992", "1995"], answer: 0, explanation: "ශාන් වික්‍රමසිංහ මහතාගේ මූලිකත්වයෙන් 1979 දී ITN නාලිකාව ආරම්භ කෙරිණි." },
+  { paperId: 1, id: 616, subject: "MED", question: "ශ්‍රී ලංකා ජාතික රූපවාහිනිය ස්ථාපිත කරන ලද්දේ කුමන රටක ආධාර ඇතිවද?", options: ["ඇමරිකාව", "චීනය", "ජපානය", "ඉන්දියාව"], answer: 2, explanation: "ජපන් රජයේ ප්‍රදානයක් ලෙස 1982 දී ජාතික රූපවාහිනිය ආරම්භ විය." },
+  { paperId: 1, id: 617, subject: "MED", question: "අන්තර්ජාලයේ (Internet) මූලාරම්භය ලෙස සැලකෙන ඇමරිකානු ආරක්ෂක අමාත්‍යාංශයේ ව්‍යාපෘතිය කුමක්ද?", options: ["ARPANET", "WWW", "ETHERNET", "MILNET"], answer: 0, explanation: "1960 ගණන් වලදී සන්නිවේදන ජාලයක් ලෙස ARPANET (Advanced Research Projects Agency Network) ආරම්භ විය." },
+  { paperId: 1, id: 618, subject: "MED", question: "ලෝක ව්‍යාප්ත වෙබ් වියමන හෙවත් WWW (World Wide Web) නිර්මාණය කළේ කවුද?", options: ["මාක් සකර්බර්ග්", "බිල් ගේට්ස්", "ටිම් බර්නර්ස් ලී", "ස්ටීව් ජොබ්ස්"], answer: 2, explanation: "1989 දී බ්‍රිතාන්‍ය ජාතික විද්‍යාඥ ටිම් බර්නර්ස් ලී (Tim Berners-Lee) විසින් WWW නිර්මාණය කළේය." },
+  { paperId: 1, id: 619, subject: "MED", question: "'ප්‍රවෘත්ති' (News) සඳහා බලපාන මූලික වටිනාකම් (News Values) අතරට අයත් නොවන්නේ කුමක්ද?", options: ["කාලීන බව (Timeliness)", "සමීප බව (Proximity)", "අබව්‍ය බව (Improbability)", "වැදගත්කම (Prominence)"], answer: 2, explanation: "ප්‍රවෘත්තියක් යථාර්ථවාදී විය යුතුය. අබව්‍ය (සිදුවිය නොහැකි) දේවල් ප්‍රවෘත්ති නොවේ." },
+  { paperId: 1, id: 620, subject: "MED", question: "සන්නිවේදන ක්‍රියාවලියේදී පණිවිඩය ග්‍රාහකයාට තේරුම් ගත හැකි ආකාරයට පරිවර්තනය කරගැනීම හඳුන්වන්නේ කුමක් ලෙසද?", options: ["සංකේතනය (Encoding)", "විසංකේතනය (Decoding)", "ප්‍රතිපෝෂණය (Feedback)", "මාධ්‍යය (Medium)"], answer: 1, explanation: "ලැබෙන පණිවිඩය (සංකේත) කියවා තේරුම් ගැනීම විසංකේතනයයි." },
+  { paperId: 1, id: 621, subject: "MED", question: "සන්නිවේදකයෙකු තමන්ගේ අදහස පණිවිඩයක් බවට පත්කිරීමට වචන, රූප හෝ සංඥා භාවිත කිරීම හඳුන්වන්නේ?", options: ["සංකේතනය (Encoding)", "විසංකේතනය", "ප්‍රචාරණය", "බලපෑම"], answer: 0, explanation: "අදහසක් භෞතික ස්වරූපයකට හැරවීම සංකේතනය නම් වේ." },
+  { paperId: 1, id: 622, subject: "MED", question: "මාධ්‍ය සාක්ෂරතාවය (Media Literacy) යන්නෙන් මූලිකවම අදහස් වන්නේ කුමක්ද?", options: ["පුවත්පත් කියවීමට ඇති හැකියාව", "මාධ්‍ය පණිවිඩ විචාරශීලීව අවබෝධ කරගැනීමේ සහ විශ්ලේෂණය කිරීමේ හැකියාව", "කැමරාවක් හැසිරවීමේ හැකියාව", "අන්තර්ජාලය වේගයෙන් භාවිතා කිරීම"], answer: 1, explanation: "මාධ්‍ය ඔස්සේ එන තොරතුරු වල සත්‍ය අසත්‍යතාව සහ යටි අරමුණු හඳුනාගැනීමේ විචාර බුද්ධියයි." },
+  { paperId: 1, id: 623, subject: "MED", question: "හැරල්ඩ් ලාස්වෙල්ගේ (1948) සන්නිවේදන ආකෘතියේ අවසන් අදියරෙන් අවධානය යොමු වන්නේ කුමක් වෙතද?", options: ["කවුද? (Who)", "කුමක් කියයිද? (Says what)", "කාටද? (To whom)", "කුමන බලපෑමක් සහිතවද? (With what effect)"], answer: 3, explanation: "ලාස්වෙල් ආකෘතිය ප්‍රධාන වශයෙන් සන්නිවේදනයේ බලපෑම (Effect) කෙරෙහි අවධානය යොමු කරයි." },
+  { paperId: 1, id: 624, subject: "MED", question: "ප්‍රවෘත්ති තෝරාගැනීමේදී සහ පෙරීමේදී ක්‍රියාත්මක වන 'ගේට් කීපින්' (Gatekeeping - ද්වාර පාලනය) සංකල්පය මුලින්ම හඳුන්වා දුන්නේ කවුද?", options: ["විල්බර් ශ්‍රාම්", "කර්ට් ලෙවින් (Kurt Lewin)", "මාෂල් මැක්ලූහන්", "ඩෙනිස් මැක්වෙල්"], answer: 1, explanation: "මනෝවිද්‍යාඥ කර්ට් ලෙවින් විසින් 1943 දී මෙම සංකල්පය හඳුන්වා දෙන ලදී." },
+  { paperId: 1, id: 625, subject: "MED", question: "මාධ්‍ය මගින් සමාජයේ කතිකාවත සහ න්‍යාය පත්‍රය (Agenda Setting) සකස් කරන බව පෙන්වා දුන්නේ කවුද?", options: ["කර්ට් ලෙවින්", "ශැනන් හා වීවර්", "මැක්ස්වෙල් මැක්කොම්බ්ස් සහ ඩොනල්ඩ් ෂෝ", "ලාස්වෙල්"], answer: 2, explanation: "ජනතාව සිතිය යුත්තේ කුමක් ගැනද යන්න ජනමාධ්‍ය විසින් තීරණය කරන බව මොවුන් පෙන්වා දුනි." },
+  { paperId: 1, id: 626, subject: "MED", question: "සන්නිවේදනයේ 'ද්වි-පියවර ගලායාමේ න්‍යාය' (Two-step flow theory) හි ප්‍රධාන චරිතය ලෙස සැලකෙන්නේ කවුද?", options: ["මත නායකයින් (Opinion Leaders)", "ග්‍රාහකයා", "ද්වාර පාලකයා", "රජය"], answer: 0, explanation: "මාධ්‍ය පණිවිඩ මුලින්ම මත නායකයින් වෙත ගොස්, ඔවුන් හරහා සමාජයේ අනෙක් අයට ගලා යන බව මින් කියැවේ." },
+  { paperId: 1, id: 627, subject: "MED", question: "නව මාධ්‍යයේ (New Media) සහ සමාජ මාධ්‍ය වල ඇති ප්‍රධානතම සුවිශේෂී ලක්ෂණයක් වන්නේ කුමක්ද?", options: ["ඒක-මාර්ගික වීම", "අන්තර්ක්‍රියාකාරීත්වය (Interactivity)", "ප්‍රමාද වී ප්‍රතිපෝෂණ ලැබීම", "පිරිවැය අධික වීම"], answer: 1, explanation: "ග්‍රාහකයාට එසැණින් ප්‍රතිචාර දැක්වීමට සහ අදහස් දැක්වීමට ඇති හැකියාව (Interactivity) මෙහි විශේෂත්වයයි." },
+  { paperId: 1, id: 628, subject: "MED", question: "අයිවන් පව්ලොව් ගේ සුනඛ පරීක්ෂණය කුමන සන්නිවේදන/මනෝවිද්‍යා න්‍යායකට අයත්ද?", options: ["උත්තේජක-ප්‍රතිචාර න්‍යාය (Stimulus-Response)", "භාවිත හා තෘප්තිමත් න්‍යාය", "සංජානන විසංවාදය", "න්‍යාය පත්‍ර සැකසීම"], answer: 0, explanation: "බාහිරින් දෙනු ලබන උත්තේජකයකට අනුරූපව සත්ත්වයා හෝ ග්‍රාහකයා දක්වන ප්‍රතිචාරය මෙයින් පැහැදිලි කෙරේ." },
+  { paperId: 1, id: 629, subject: "MED", question: "ප්‍රචාරණය (Advertising) යන්නෙහි මූලික ලක්ෂණයක් වන්නේ?", options: ["නොමිලේ ප්‍රචාරය වීම", "ගෙවීමක් සහිතව, හඳුනාගත් අනුග්‍රාහකයෙකු හරහා සිදුකිරීම", "අපක්ෂපාතී තොරතුරු දීම", "කතුවැකියක ස්වරූපයෙන් පැවතීම"], answer: 1, explanation: "ප්‍රචාරණය යනු සෑම විටම මුදල් ගෙවා ලබාගන්නා, අනුග්‍රාහකයාගේ අරමුණු ඉටු කරන සන්නිවේදන ක්‍රමයකි." },
+  { paperId: 1, id: 630, subject: "MED", question: "මහජන සම්බන්ධතා (Public Relations / PR) වල ප්‍රධානතම අරමුණ කුමක්ද?", options: ["භාණ්ඩ විකිණීම", "අවම පිරිවැයකින් ප්‍රවෘත්ති මැවීම", "ආයතනය සහ එහි මහජනතාව අතර අන්‍යෝන්‍ය අවබෝධය හා යහපත් ප්‍රතිරූපයක් ගොඩනැගීම", "තරඟකරුවන් විනාශ කිරීම"], answer: 2, explanation: "PR හි මූලික අරමුණ වන්නේ ආයතනය කෙරෙහි මහජන විශ්වාසය සහ යහපත් ප්‍රතිරූපයක් ඇති කිරීමයි." },
+  { paperId: 1, id: 631, subject: "MED", question: "ශ්‍රී ලංකා පුවත්පත් මණ්ඩලය ස්ථාපිත කරන ලද්දේ කිනම් පනතක් මගින්ද?", options: ["1981 අංක 10 පනත", "1973 අංක 5 දරන පුවත්පත් මණ්ඩල පනත", "1995 විද්‍යුත් මාධ්‍ය පනත", "2016 තොරතුරු පනත"], answer: 1, explanation: "පුවත්පත් නිදහස සහ පුවත්පත් කලාවේ ආචාරධර්ම සුරැකීම සඳහා 1973 දී මෙම මණ්ඩලය පිහිටුවන ලදී." },
+  { paperId: 1, id: 632, subject: "MED", question: "තොරතුරු දැනගැනීමේ අයිතිවාසිකම (RTI) පිළිබඳ පනත ශ්‍රී ලංකා පාර්ලිමේන්තුවේ සම්මත වූයේ කිනම් වසරේද?", options: ["2010", "2015", "2016", "2020"], answer: 2, explanation: "2016 අංක 12 දරන තොරතුරු දැනගැනීමේ අයිතිවාසිකම පිළිබඳ පනත මගින් මහජනතාවට රාජ්‍ය තොරතුරු ලබාගැනීමේ අයිතිය තහවුරු විය." },
+  { paperId: 1, id: 633, subject: "MED", question: "'කහ පුවත්පත් කලාව' (Yellow Journalism) යන්නෙන් අදහස් වන්නේ කුමක්ද?", options: ["කහ පැහැති කඩදාසිවල මුද්‍රණය කිරීම", "ආවේගාත්මක, සත්‍ය විකෘති කරන සහ අතිශයෝක්තියෙන් යුත් පුවත් වාර්තාකරණය", "බෞද්ධ ප්‍රවෘත්ති වාර්තාකරණය", "ක්‍රීඩා පුවත් පමණක් වාර්තා කිරීම"], answer: 1, explanation: "අලෙවිය වැඩිකර ගැනීම සඳහා පාඨකයා කම්පනයට පත්කරන ආකාරයේ ආන්දෝලනාත්මක පුවත් නිර්මාණය කිරීම මෙයින් අදහස් වේ." },
+  { paperId: 1, id: 634, subject: "MED", question: "ලෝක පුවත්පත් නිදහස් දිනය (World Press Freedom Day) ලෙස ජාත්‍යන්තරව සමරන්නේ කවදාද?", options: ["ජනවාරි 1", "මාර්තු 15", "මැයි 3", "ඔක්තෝම්බර් 24"], answer: 2, explanation: "එක්සත් ජාතීන්ගේ සංවිධානය විසින් මැයි 3 වනදා ලෝක පුවත්පත් නිදහස් දිනය ලෙස ප්‍රකාශයට පත් කර ඇත." },
+  { paperId: 1, id: 635, subject: "MED", question: "ගුවන්විදුලි සන්නිවේදනයේදී බහුලවම භාවිතා වන FM යන්නෙහි තේරුම කුමක්ද?", options: ["Fast Media", "Free Modulation", "Frequency Modulation (සංඛ්‍යාත මූර්ඡනය)", "Forward Message"], answer: 2, explanation: "ගුවන්විදුලි තරංග වල සංඛ්‍යාතය වෙනස් කිරීම මගින් පණිවිඩ යැවීම FM තාක්ෂණයයි." },
+  { paperId: 1, id: 636, subject: "MED", question: "මාධ්‍ය ආචාරධර්ම (Media Ethics) වල මූලිකම අරමුණ කුමක්ද?", options: ["මාධ්‍ය ආයතනයේ ලාභය වැඩි කිරීම", "වගකීම් සහගතව, අපක්ෂපාතීව සහ නිවැරදිව තොරතුරු වාර්තා කිරීම", "රජයට පක්ෂපාතී වීම", "වෙනත් නාලිකා වලට පහරදීම"], answer: 1, explanation: "සමාජයට හානියක් නොවන අයුරින් සත්‍යගරුකව සහ සාධාරණව තොරතුරු ලබාදීම මාධ්‍ය සදාචාරයයි." },
+  { paperId: 1, id: 637, subject: "MED", question: "ලාංකීය සිනමාවේ විප්ලවීය වෙනසක් ඇති කළ, ආචාර්ය ලෙස්ටර් ජේම්ස් පීරිස් අධ්‍යක්ෂණය කළ ප්‍රථම චිත්‍රපටය කුමක්ද?", options: ["ගම්පෙරළිය", "රේඛාව", "නිධානය", "සංදේශය"], answer: 1, explanation: "1956 දී තිරගත වූ 'රේඛාව' චිත්‍රපටය ලාංකීය සිනමාව එළිමහනට රැගෙන ආ ප්‍රථම සැබෑ දේශීය චිත්‍රපටය ලෙස සැලකේ." },
+  { paperId: 1, id: 638, subject: "MED", question: "බ්‍රෝඩ්බෑන්ඩ් (Broadband) තාක්ෂණය මූලිකවම සම්බන්ධ වන්නේ කුමන මාධ්‍යයකටද?", options: ["ගුවන් විදුලියට", "පුවත්පත් වලට", "අන්තර්ජාල සන්නිවේදනයට", "සිනමාවට"], answer: 2, explanation: "අධිවේගී අන්තර්ජාල සේවා ලබා දීම සඳහා බ්‍රෝඩ්බෑන්ඩ් තාක්ෂණය භාවිතා කෙරේ." },
+  { paperId: 1, id: 639, subject: "MED", question: "අන්තර් පුද්ගල සන්නිවේදනය (Interpersonal Communication) යනු?", options: ["තමා තමා සමගම කතා කිරීම", "පුද්ගලයින් දෙදෙනෙකු හෝ කුඩා කණ්ඩායමක් අතර මුහුණට මුහුණ සිදුවන සන්නිවේදනය", "රූපවාහිනිය නැරඹීම", "පොතක් කියවීම"], answer: 1, explanation: "පුද්ගලයන් අතර සෘජුවම අදහස් හුවමාරු වීම අන්තර් පුද්ගල සන්නිවේදනයයි." },
+  { paperId: 1, id: 640, subject: "MED", question: "ජනමාධ්‍යයේ (Mass Media) ප්‍රධාන ලක්ෂණයක් නොවන්නේ කුමක්ද?", options: ["පුළුල් සහ විසිරුණු ග්‍රාහක පිරිසක් සිටීම", "පණිවිඩය වේගයෙන් සම්ප්‍රේෂණය වීම", "ග්‍රාහකයාට ක්ෂණිකව සහ පහසුවෙන් ප්‍රතිපෝෂණ දිය හැකි වීම", "තාක්ෂණික මෙවලමක් භාවිතා වීම"], answer: 2, explanation: "සාම්ප්‍රදායික ජනමාධ්‍යයේ (පුවත්පත්, TV) පණිවිඩය ගමන් කරන්නේ එක් දිශාවකට පමණක් බැවින් ක්ෂණික ප්‍රතිපෝෂණ දීම අපහසුය." }
+];
+
+const mediaProLevels = Array.from({length: 40}, (_, i) => ({
+  paperId: `H${i+1}`, 
+  id: 6000 + i, 
+  subject: "MED-PRO", 
+  question: `මෙම කලා විෂය අභියෝගය ජයගැනීමට නිවැරදි පිළිතුර තෝරන්න. (Advanced Media Challenge ${i+1})`, 
+  options: ["වැරදි පිළිතුරක්", "නිවැරදි පිළිතුර", "තවත් වැරදි එකක්", "මෙයත් වැරදියි"], 
+  answer: 1, 
+  explanation: `ඔබ මෙම අභියෝගය සාර්ථකව අවසන් කළා!`
+}));
+
+mediaProLevels[0] = { paperId: 'H1', id: 6001, subject: "MED-PRO", question: "සන්නිවේදනයේ 'උපලක්ෂිත අර්ථය' (Connotative Meaning) යනු කුමක්ද?", options: ["ශබ්දකෝෂයේ ඇති සෘජු අර්ථය", "සමාජය විසින් හෝ පුද්ගලයා විසින් ආරෝපණය කරගත් සැඟවුණු අර්ථය", "වචනයේ මුල් භාෂාව", "ව්‍යාකරණානුකූල අර්ථය"], answer: 1, explanation: "උදාහරණයක් ලෙස 'බල්ලා' යන්නෙහි වාච්‍යාර්ථය සතෙකු වුවත්, එය පුද්ගලයෙකුට බැණවැදීමට යොදාගැනීම උපලක්ෂිත අර්ථයකි." };
+mediaProLevels[1] = { paperId: 'H2', id: 6002, subject: "MED-PRO", question: "'ප්‍රජා ගුවන්විදුලිය' (Community Radio) හි මූලික ලක්ෂණය කුමක්ද?", options: ["වාණිජ ලාභ ඉපයීම", "රජයේ ප්‍රචාරක කටයුතු කිරීම", "යම් නිශ්චිත ප්‍රජාවකගේ සහභාගීත්වයෙන් එම ප්‍රජාවගේ දියුණුව වෙනුවෙන් ක්‍රියාත්මක වීම", "ජාත්‍යන්තර ප්‍රවෘත්ති පමණක් විකාශය කිරීම"], answer: 2, explanation: "මහවැලි ප්‍රජා ගුවන්විදුලිය මෙන්, ග්‍රාමීය ප්‍රජාව සවිබල ගැන්වීම මෙහි අරමුණයි." };
+
+const fullMediaBank = [...mediaQuestionBank, ...mediaProLevels];
+
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -450,6 +578,7 @@ export default function App() {
     }
   };
 
+  // Leaderboard Sync (Aggregated Cumulative Scoring - SAFE FOR OLD DATA)
   useEffect(() => {
     if (!user || !db) return;
     const q = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
@@ -511,6 +640,7 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
+  // History Sync
   useEffect(() => {
     if (!user || !db) return;
     const q = collection(db, 'artifacts', appId, 'users', user.uid, 'scores');
@@ -521,6 +651,7 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
+  // Timer Logic for PRO Mode
   useEffect(() => {
     if (gameState === 'playing' && String(selectedPaper).startsWith('H') && !showFeedback) {
         if (timeLeft > 0) {
@@ -574,6 +705,8 @@ export default function App() {
   };
 
   const getActiveBank = () => {
+    if (selectedStream === 'grade5') return fullGrade5Bank;
+    if (selectedStream === 'media') return fullMediaBank;
     return selectedStream === 'commerce' ? fullCommerceBank : fullScienceBank;
   };
 
@@ -583,6 +716,8 @@ export default function App() {
     }
     return max;
   }, 0) + 1;
+
+  const getBaseTimeForPro = () => selectedStream === 'grade5' ? 45 : 15;
 
   const selectPaper = (paperId) => {
     const activeBank = getActiveBank();
@@ -598,7 +733,7 @@ export default function App() {
     } else {
        paperQuestions = activeBank.filter(q => String(q.paperId) === String(paperId));
        if (paperQuestions.length === 0) {
-         alert(`මෙම ප්‍රශ්න පත්‍රය සඳහා තවමත් ප්‍රශ්න ඇතුළත් කර නැත.`);
+         alert(`මෙම ප්‍රශ්න පත්‍රය සඳහා තවමත් ප්‍රශ්න ඇතුළත් කර නැත. ළඟදීම බලාපොරොත්තු වන්න!`);
          return;
        }
        paperQuestions = paperQuestions.sort(() => 0.5 - Math.random()).slice(0, 40); 
@@ -614,7 +749,8 @@ export default function App() {
     
     if (isPro) {
        const levelNum = parseInt(String(paperId).replace('H', '')) || 1;
-       setTimeLeft(Math.max(15 - Math.floor(levelNum / 5), 5)); 
+       const baseTime = getBaseTimeForPro();
+       setTimeLeft(Math.max(baseTime - Math.floor(levelNum / 5), 5)); 
     }
     
     setGameState('playing');
@@ -676,7 +812,8 @@ export default function App() {
          setCurrentIndex(prev => prev + 1);
          if (isHardMode) {
             const levelNum = parseInt(String(selectedPaper).replace('H', '')) || 1;
-            setTimeLeft(Math.max(15 - Math.floor(levelNum / 5), 5));
+            const baseTime = getBaseTimeForPro();
+            setTimeLeft(Math.max(baseTime - Math.floor(levelNum / 5), 5));
          }
       }
     } else {
@@ -704,15 +841,26 @@ export default function App() {
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-blue-500 w-10 h-10" /></div>;
 
+  // Stream & Theme Logic
   const isScience = selectedStream === 'science';
+  const isGrade5 = selectedStream === 'grade5';
+  const isMedia = selectedStream === 'media';
   const isHardMode = String(selectedPaper).startsWith('H');
-  const themeColor = isScience ? 'emerald' : 'blue';
-  const ThemeIcon = isScience ? Microscope : Brain;
+  
+  let themeColor = 'blue';
+  let ThemeIcon = Brain;
+  if (isScience) { themeColor = 'emerald'; ThemeIcon = Microscope; }
+  if (isGrade5) { themeColor = 'amber'; ThemeIcon = BookOpen; }
+  if (isMedia) { themeColor = 'pink'; ThemeIcon = Camera; }
+
   const gameBgClass = isHardMode ? "bg-rose-950 border-rose-600 shadow-[0_0_50px_rgba(225,29,72,0.3)]" : "bg-slate-900 border-slate-800 shadow-2xl";
 
   const topOverallScorer = [...leaderboard].sort((a,b) => b.score - a.score)[0];
   const topCommerce = leaderboard.filter(e => e.stream === 'commerce').sort((a,b) => b.score - a.score).slice(0, 5);
   const topScience = leaderboard.filter(e => e.stream === 'science').sort((a,b) => b.score - a.score).slice(0, 5);
+  const topGrade5 = leaderboard.filter(e => e.stream === 'grade5').sort((a,b) => b.score - a.score).slice(0, 5);
+  const topMedia = leaderboard.filter(e => e.stream === 'media').sort((a,b) => b.score - a.score).slice(0, 5);
+  
   const proLeaderboardCommerce = leaderboard.filter(e => e.stream === 'commerce' && e.proLevel > 0).sort((a,b) => b.proLevel - a.proLevel).slice(0, 5);
   const proLeaderboardScience = leaderboard.filter(e => e.stream === 'science' && e.proLevel > 0).sort((a,b) => b.proLevel - a.proLevel).slice(0, 5);
   const hardModeChamp = [...leaderboard].filter(e => e.proLevel > 0).sort((a,b) => b.proLevel - a.proLevel)[0];
@@ -729,14 +877,14 @@ export default function App() {
       <div className="max-w-4xl mx-auto">
         
         {/* Navigation Bar */}
-        {gameState !== 'home' && (
+        {gameState !== 'home' && gameState !== 'stream_select' && (
           <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4 animate-in fade-in">
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setGameState('home'); setShowAllLeaderboard(false); }}>
               <div className={`bg-${isHardMode ? 'purple' : themeColor}-600/20 p-2 rounded-xl border border-${isHardMode ? 'purple' : themeColor}-500/30 text-${isHardMode ? 'purple' : themeColor}-400`}>
                 {isHardMode ? <Sparkles className="w-6 h-6" /> : <ThemeIcon className="w-6 h-6" />}
               </div>
               <h1 className="text-xl font-black uppercase tracking-widest hidden sm:block text-white">
-                {isHardMode ? 'PRO MODE' : (isScience ? 'Science Pro' : 'Commerce Pro')}
+                {isHardMode ? 'PRO MODE' : (isGrade5 ? 'Grade 5 Pro' : (isScience ? 'Science Pro' : 'Commerce Pro'))}
               </h1>
             </div>
             <div className="flex gap-2">
@@ -750,7 +898,7 @@ export default function App() {
           </div>
         )}
 
-        {/* HOME SCREEN */}
+        {/* HOME SCREEN - GRADE SELECTION */}
         {gameState === 'home' && (
           <div className="flex flex-col items-center justify-center py-12 animate-in zoom-in duration-500 min-h-[80vh]">
             
@@ -787,7 +935,7 @@ export default function App() {
             </div>
 
             <h1 className="text-4xl md:text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 drop-shadow-lg text-center leading-tight">
-              ඔබේ විෂය ධාරාව තෝරන්න
+              ඔබේ ශ්‍රේණිය තෝරන්න
             </h1>
             
             {/* NAME CONFIRMATION SECTION */}
@@ -813,10 +961,111 @@ export default function App() {
                 </button>
               </div>
             ) : (
-              /* STREAM SELECTION SECTION */
+              /* GRADE SELECTION GRID */
               <div className="w-full animate-in zoom-in duration-300 flex flex-col items-center">
-                <h2 className="text-xl font-bold text-slate-300 mb-6">සුබ පැතුම් <span className="text-indigo-400">{userName}</span>! දැන් ඔබගේ අංශය තෝරාගන්න.</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
+                <h2 className="text-xl font-bold text-slate-300 mb-6">සුබ පැතුම් <span className="text-indigo-400">{userName}</span>! දැන් ඔබගේ ශ්‍රේණිය තෝරාගන්න.</h2>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
+                  
+                  <div onClick={() => selectStream('grade5')} className="cursor-pointer group bg-amber-900/20 border border-amber-500/30 rounded-2xl p-6 hover:bg-amber-600 hover:border-amber-400 transition-all flex flex-col items-center shadow-lg">
+                    <BookOpen className="w-8 h-8 text-amber-400 group-hover:text-white mb-2" />
+                    <span className="text-xl font-black text-white">5 වසර</span>
+                  </div>
+                  
+                  {[6, 7, 8, 9, 10, 11].map(grade => (
+                    <div key={grade} onClick={() => alert("මෙම ශ්‍රේණිය සඳහා ප්‍රශ්න පත්‍ර ළඟදීම බලාපොරොත්තු වන්න!")} className="cursor-pointer group bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-slate-600 transition-all flex flex-col items-center opacity-60">
+                      <Lock className="w-6 h-6 text-slate-500 mb-2" />
+                      <span className="text-lg font-bold text-slate-400">{grade} වසර</span>
+                      <span className="text-[10px] text-slate-500 mt-1">ළඟදීම...</span>
+                    </div>
+                  ))}
+
+                  <div onClick={() => setGameState('stream_select')} className="cursor-pointer group bg-indigo-900/20 border border-indigo-500/30 rounded-2xl p-6 hover:bg-indigo-600 hover:border-indigo-400 transition-all flex flex-col items-center shadow-lg col-span-2 md:col-span-1">
+                    <GraduationCap className="w-8 h-8 text-indigo-400 group-hover:text-white mb-2" />
+                    <span className="text-lg font-black text-white">12/13 ශ්‍රේණිය</span>
+                    <span className="text-[10px] text-indigo-300 mt-1 uppercase tracking-widest">A/L Streams</span>
+                  </div>
+
+                </div>
+                <button onClick={() => setNameConfirmed(false)} className="mt-8 text-slate-500 hover:text-slate-300 text-sm font-bold underline underline-offset-4">වෙනත් නමක් ඇතුළත් කරන්න</button>
+              </div>
+            )}
+
+            {/* TOP SCORERS SECTION */}
+            <div className="w-full max-w-6xl mt-16 animate-in fade-in slide-in-from-bottom-8">
+              <h3 className="text-2xl font-black text-center mb-8 text-white flex items-center justify-center gap-3">
+                <Trophy className="text-yellow-500 w-8 h-8" /> මුළු ලකුණු පුවරුව (Cumulative Top)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                
+                {/* Grade 5 Leaderboard */}
+                <div className="bg-slate-900 border border-amber-500/30 rounded-3xl p-6 shadow-lg">
+                  <h4 className="text-amber-400 font-bold mb-4 flex items-center gap-2 text-md uppercase tracking-widest"><BookOpen className="w-4 h-4"/> 5 වසර</h4>
+                  <div className="space-y-2">
+                    {topGrade5.length === 0 ? <p className="text-slate-600 text-sm py-4 text-center">තවමත් දත්ත නොමැත</p> : topGrade5.map((entry, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/30' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</span>
+                          <span className="font-semibold text-slate-200 text-xs truncate max-w-[80px]">{String(entry.name)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-amber-500 font-black">{Number(entry.score)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Arts / Media Leaderboard */}
+                <div className="bg-slate-900 border border-pink-500/30 rounded-3xl p-6 shadow-lg">
+                  <h4 className="text-pink-400 font-bold mb-4 flex items-center gap-2 text-md uppercase tracking-widest"><Camera className="w-4 h-4"/> කලා (Media)</h4>
+                  <div className="space-y-2">
+                    {topMedia.length === 0 ? <p className="text-slate-600 text-sm py-4 text-center">තවමත් දත්ත නොමැත</p> : topMedia.map((entry, idx) => (
+                      <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/30' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</span>
+                          <span className="font-semibold text-slate-200 text-xs truncate max-w-[80px]">{String(entry.name)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-pink-500 font-black">{Number(entry.score)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+              <div className="text-center mt-6">
+                <button onClick={() => { setSelectedStream(null); setLeaderboardTab('normal'); setShowAllLeaderboard(false); setGameState('leaderboard'); }} className="text-slate-400 hover:text-white text-sm font-bold underline underline-offset-4">
+                  සම්පූර්ණ ලැයිස්තුවම බලන්න
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STREAM SELECT (A/L) */}
+        {gameState === 'stream_select' && (
+           <div className="flex flex-col items-center justify-center py-12 animate-in zoom-in duration-500 min-h-[80vh]">
+              <button onClick={() => setGameState('home')} className="self-start p-2 hover:bg-slate-900 rounded-lg mb-8 flex items-center gap-2 text-slate-400 hover:text-white"><ArrowLeft /> ආපසු</button>
+              <h1 className="text-3xl md:text-4xl font-black mb-12 text-white drop-shadow-lg text-center">
+                උසස් පෙළ අංශය තෝරන්න
+              </h1>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
+                  
+                  {/* Arts / Media Card */}
+                  <div 
+                    onClick={() => selectStream('media')} 
+                    className="cursor-pointer group relative bg-slate-900/80 border-2 border-pink-500/30 rounded-[2.5rem] p-10 hover:border-pink-500 hover:bg-pink-900/20 hover:shadow-[0_0_40px_rgba(236,72,153,0.3)] transition-all duration-300 flex flex-col items-center text-center overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl group-hover:bg-pink-500/20 transition-all"></div>
+                    <div className="bg-pink-500/20 p-5 rounded-3xl mb-6 text-pink-400 group-hover:scale-110 transition-transform duration-300">
+                      <Camera className="w-16 h-16" />
+                    </div>
+                    <h2 className="text-3xl font-black text-white mb-3">කලා අංශය</h2>
+                    <p className="text-pink-200/60 font-medium mb-6">මාධ්‍ය අධ්‍යයනය (Media)</p>
+                    <span className="text-pink-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
+                  </div>
+
                   {/* Commerce Card */}
                   <div 
                     onClick={() => selectStream('commerce')} 
@@ -827,7 +1076,7 @@ export default function App() {
                       <Calculator className="w-16 h-16" />
                     </div>
                     <h2 className="text-3xl font-black text-white mb-3">වාණිජ අංශය</h2>
-                    <p className="text-blue-200/60 font-medium mb-6">BS | ACC | ECON ප්‍රශ්න පත්‍ර</p>
+                    <p className="text-blue-200/60 font-medium mb-6">BS | ACC | ECON</p>
                     <span className="text-blue-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
                   </div>
 
@@ -841,115 +1090,11 @@ export default function App() {
                       <Atom className="w-16 h-16" />
                     </div>
                     <h2 className="text-3xl font-black text-white mb-3">විද්‍යා අංශය</h2>
-                    <p className="text-emerald-200/60 font-medium mb-6">භෞතික විද්‍යාව | රසායන විද්‍යාව | ජීව විද්‍යාව</p>
+                    <p className="text-emerald-200/60 font-medium mb-6">PHY | CHE | BIO</p>
                     <span className="text-emerald-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
                   </div>
-                </div>
-                <button onClick={() => setNameConfirmed(false)} className="mt-8 text-slate-500 hover:text-slate-300 text-sm font-bold underline underline-offset-4">වෙනත් නමක් ඇතුළත් කරන්න</button>
               </div>
-            )}
-
-            {/* TOP SCORERS SECTION */}
-            <div className="w-full max-w-4xl mt-16 animate-in fade-in slide-in-from-bottom-8">
-              <h3 className="text-2xl font-black text-center mb-8 text-white flex items-center justify-center gap-3">
-                <Trophy className="text-yellow-500 w-8 h-8" /> මුළු ලකුණු පුවරුව (Cumulative Top)
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Commerce Leaderboard */}
-                <div className="bg-slate-900 border border-blue-500/30 rounded-3xl p-6 shadow-lg">
-                  <h4 className="text-blue-400 font-bold mb-4 flex items-center gap-2 text-lg uppercase tracking-widest"><Calculator className="w-5 h-5"/> වාණිජ අංශය</h4>
-                  <div className="space-y-2">
-                    {topCommerce.length === 0 ? <p className="text-slate-600 text-sm py-4 text-center">තවමත් දත්ත නොමැත</p> : topCommerce.map((entry, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/30' : idx === 1 ? 'bg-slate-300 text-black' : idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</span>
-                          <span className="font-semibold text-slate-200 text-sm">{String(entry.name)}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-blue-500 font-black">{Number(entry.score)}</span>
-                          <span className="text-[9px] block text-slate-500 uppercase">Total Marks</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Science Leaderboard */}
-                <div className="bg-slate-900 border border-emerald-500/30 rounded-3xl p-6 shadow-lg">
-                  <h4 className="text-emerald-400 font-bold mb-4 flex items-center gap-2 text-lg uppercase tracking-widest"><Atom className="w-5 h-5"/> විද්‍යා අංශය</h4>
-                  <div className="space-y-2">
-                    {topScience.length === 0 ? <p className="text-slate-600 text-sm py-4 text-center">තවමත් දත්ත නොමැත</p> : topScience.map((entry, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/30' : idx === 1 ? 'bg-slate-300 text-black' : idx === 2 ? 'bg-amber-700 text-white' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</span>
-                          <span className="font-semibold text-slate-200 text-sm">{String(entry.name)}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-emerald-500 font-black">{Number(entry.score)}</span>
-                          <span className="text-[9px] block text-slate-500 uppercase">Total Marks</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* TOP PRO MODE PLAYERS */}
-            {(proLeaderboardCommerce.length > 0 || proLeaderboardScience.length > 0) && (
-              <div className="w-full max-w-4xl mt-16 animate-in fade-in slide-in-from-bottom-8">
-                <h3 className="text-2xl font-black text-center mb-8 text-white flex items-center justify-center gap-3">
-                  <Sparkles className="text-purple-400 w-8 h-8" /> PRO MODE (Top Players)
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Commerce PRO */}
-                  <div className="bg-slate-900 border border-purple-500/30 rounded-3xl p-6 shadow-lg shadow-purple-900/10">
-                    <h4 className="text-purple-400 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-widest"><Calculator className="w-4 h-4"/> Commerce PRO</h4>
-                    <div className="space-y-2">
-                      {proLeaderboardCommerce.length === 0 ? <p className="text-slate-600 text-sm py-2">තවමත් දත්ත නොමැත</p> : proLeaderboardCommerce.map((entry, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500 text-slate-900 shadow-lg shadow-yellow-500/30' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</span>
-                            <span className="font-semibold text-slate-200 text-sm">{String(entry.name)}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-purple-400 font-black">Level {Number(entry.proLevel)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Science PRO */}
-                  <div className="bg-slate-900 border border-purple-500/30 rounded-3xl p-6 shadow-lg shadow-purple-900/10">
-                    <h4 className="text-purple-400 font-bold mb-4 flex items-center gap-2 text-sm uppercase tracking-widest"><Atom className="w-4 h-4"/> Science PRO</h4>
-                    <div className="space-y-2">
-                      {proLeaderboardScience.length === 0 ? <p className="text-slate-600 text-sm py-2">තවමත් දත්ත නොමැත</p> : proLeaderboardScience.map((entry, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500 text-slate-900 shadow-lg shadow-yellow-500/30' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</span>
-                            <span className="font-semibold text-slate-200 text-sm">{String(entry.name)}</span>
-                          </div>
-                          <div className="text-right">
-                            <span className="text-purple-400 font-black">Level {Number(entry.proLevel)}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* View Full Leaderboard Button */}
-            <div className="text-center mt-12">
-              <button onClick={() => { setSelectedStream(null); setLeaderboardTab('normal'); setShowAllLeaderboard(false); setGameState('leaderboard'); }} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-full text-sm font-bold flex items-center gap-2 mx-auto transition-all">
-                සම්පූර්ණ ලැයිස්තුවම බලන්න (View All) <ChevronRight className="w-4 h-4"/>
-              </button>
-            </div>
-          </div>
+           </div>
         )}
 
         {/* Start Screen (Stream inside) */}
@@ -963,7 +1108,8 @@ export default function App() {
             </div>
 
             <h2 className="text-5xl md:text-6xl font-black mb-6 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 drop-shadow-lg">
-              {isScience ? 'SCIENCE වැඩ්ඩෙක්' : 'COMMERCE වැඩ්ඩෙක්'}<br/><span className={`text-${themeColor}-400 text-3xl`}>වෙන්න ඕනෙද?</span>
+              {isScience ? 'SCIENCE වැඩ්ඩෙක්' : (isGrade5 ? '5 වසර අභියෝගය' : (isMedia ? 'ARTS වැඩ්ඩෙක්' : 'COMMERCE වැඩ්ඩෙක්'))}<br/>
+              {!isGrade5 && <span className={`text-${themeColor}-400 text-3xl`}>වෙන්න ඕනෙද?</span>}
             </h2>
             
             <p className="text-slate-400 mb-10 max-w-lg mx-auto leading-relaxed text-lg">
@@ -991,16 +1137,20 @@ export default function App() {
             </div>
             
             <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
-              {Array.from({ length: 40 }, (_, i) => (
+              {Array.from({ length: 40 }, (_, i) => {
+                // Determine unlocked papers based on stream
+                const isPaperUnlocked = isGrade5 ? i < 1 : i < 3; 
+                return (
                 <button
                   key={i}
                   onClick={() => selectPaper(i + 1)}
-                  className={`aspect-square border rounded-xl flex flex-col items-center justify-center transition-all group ${i < 3 ? `bg-${themeColor}-900/20 border-${themeColor}-800 hover:bg-${themeColor}-600 hover:border-${themeColor}-400 hover:-translate-y-1 shadow-lg` : 'bg-slate-900 border-slate-800 hover:bg-slate-800 opacity-50'}`}
+                  className={`aspect-square border rounded-xl flex flex-col items-center justify-center transition-all group ${isPaperUnlocked ? `bg-${themeColor}-900/20 border-${themeColor}-800 hover:bg-${themeColor}-600 hover:border-${themeColor}-400 hover:-translate-y-1 shadow-lg` : 'bg-slate-900 border-slate-800 hover:bg-slate-800 opacity-50'}`}
                 >
-                  <span className={`text-xs font-bold uppercase ${i < 3 ? `text-${themeColor}-400 group-hover:text-white` : 'text-slate-500'}`}>Paper</span>
+                  <span className={`text-xs font-bold uppercase ${isPaperUnlocked ? `text-${themeColor}-400 group-hover:text-white` : 'text-slate-500'}`}>Paper</span>
                   <span className="text-xl font-black text-white">{i + 1}</span>
+                  {!isPaperUnlocked && <span className="text-[8px] text-slate-500 mt-1">ළඟදීම</span>}
                 </button>
-              ))}
+              )})}
             </div>
             
             {/* PRO MODE SECTION (Sequential Unlock) */}
@@ -1008,7 +1158,7 @@ export default function App() {
                <h3 className={`text-xl font-black uppercase text-purple-400 mb-6 flex items-center gap-2`}>
                  <Sparkles className="w-6 h-6 animate-pulse" /> PRO MODE (Advanced Levels)
                </h3>
-               <p className="text-slate-400 text-sm mb-6">තත්පර 15යි! එක පාරින්ම හරි උත්තරය දුන්නොත් පමණක් ඊළඟ Level එක Unlock වේ!</p>
+               <p className="text-slate-400 text-sm mb-6">තත්පර {isGrade5 ? '45' : '15'}යි! එක පාරින්ම හරි උත්තරය දුන්නොත් පමණක් ඊළඟ Level එක Unlock වේ!</p>
                <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
                   {Array.from({ length: 40 }, (_, i) => {
                      const lvlNum = i + 1;
@@ -1064,7 +1214,7 @@ export default function App() {
                         <span className={timeLeft <= 5 ? 'text-rose-500 animate-pulse text-lg' : 'text-purple-400 text-lg'}>{timeLeft}s</span>
                      </div>
                      <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className={`h-full ${timeLeft <= 5 ? 'bg-rose-500' : 'bg-purple-500'} transition-all duration-1000 ease-linear`} style={{ width: `${(timeLeft / Math.max(15 - Math.floor(parseInt(String(selectedPaper).replace('H', '')) / 5), 5)) * 100}%` }}></div>
+                        <div className={`h-full ${timeLeft <= 5 ? 'bg-rose-500' : 'bg-purple-500'} transition-all duration-1000 ease-linear`} style={{ width: `${(timeLeft / Math.max(getBaseTimeForPro() - Math.floor(parseInt(String(selectedPaper).replace('H', '')) / 5), 5)) * 100}%` }}></div>
                      </div>
                   </div>
                 )}
@@ -1156,7 +1306,7 @@ export default function App() {
             <h2 className="text-3xl font-black mb-2 uppercase text-white">
                {isHardMode && score !== currentQuestions.length ? `අයියෝ ${userName}! 😢` : `විශිෂ්ටයි ${userName}!`}
             </h2>
-            <p className="text-slate-300 mb-2">ඔබ {isHardMode ? `PRO Level ${String(selectedPaper).replace('H','')}` : (isScience ? 'විද්‍යා ප්‍රශ්න පත්‍රය' : 'වාණිජ ප්‍රශ්න පත්‍රය')} අවසන් කළා.</p>
+            <p className="text-slate-300 mb-2">ඔබ {isHardMode ? `PRO Level ${String(selectedPaper).replace('H','')}` : (isGrade5 ? '5 වසර ප්‍රශ්න පත්‍රය' : (isScience ? 'විද්‍යා ප්‍රශ්න පත්‍රය' : (isMedia ? 'මාධ්‍ය අධ්‍යයනය ප්‍රශ්න පත්‍රය' : 'වාණිජ ප්‍රශ්න පත්‍රය')))} අවසන් කළා.</p>
             <div className={`text-7xl font-black ${isHardMode && score !== currentQuestions.length ? 'text-rose-500' : (isHardMode ? 'text-purple-400' : `text-${themeColor}-500`)} my-8 drop-shadow-[0_0_20px_rgba(0,0,0,0.3)]`}>{score} <span className="text-xl text-slate-400">/ {currentQuestions.length} ලකුණු</span></div>
             
             {/* Auto Save Message */}
@@ -1269,7 +1419,7 @@ export default function App() {
                       <div className="flex items-center gap-5">
                         <span className="w-8 h-8 rounded-lg flex items-center justify-center font-black bg-slate-950 text-slate-500">{idx + 1}</span>
                         <div>
-                          <p className="font-bold text-slate-200">{String(e.paperId).startsWith('H') ? `PRO Level ${String(e.paperId).replace('H','')}` : `Paper ${e.paperId}`} <span className={`text-[10px] px-2 py-0.5 rounded ml-2 border ${e.stream === 'science' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30'}`}>{e.stream === 'science' ? 'SCI' : 'COM'}</span></p>
+                          <p className="font-bold text-slate-200">{String(e.paperId).startsWith('H') ? `PRO Level ${String(e.paperId).replace('H','')}` : `Paper ${e.paperId}`} <span className={`text-[10px] px-2 py-0.5 rounded ml-2 border ${e.stream === 'science' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : (e.stream === 'grade5' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : (e.stream === 'media' ? 'bg-pink-500/20 text-pink-400 border-pink-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30'))}`}>{e.stream === 'science' ? 'SCI' : (e.stream === 'grade5' ? 'G5' : (e.stream === 'media' ? 'MED' : 'COM'))}</span></p>
                           <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{new Date(e.timestamp).toLocaleDateString()}</p>
                         </div>
                       </div>
@@ -1301,10 +1451,12 @@ export default function App() {
              </div>
 
              {/* Stream Filter */}
-             <div className="flex gap-2 p-4 bg-slate-950 border-b border-slate-800">
+             <div className="flex flex-wrap gap-2 p-4 bg-slate-950 border-b border-slate-800">
                 <button onClick={() => {setSelectedStream(null); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${!selectedStream ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>සියල්ල</button>
+                <button onClick={() => {setSelectedStream('grade5'); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'grade5' ? 'bg-amber-600/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}><BookOpen className="w-4 h-4"/> 5 වසර</button>
                 <button onClick={() => {setSelectedStream('commerce'); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'commerce' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Calculator className="w-4 h-4"/> Commerce</button>
                 <button onClick={() => {setSelectedStream('science'); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'science' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Atom className="w-4 h-4"/> Science</button>
+                <button onClick={() => {setSelectedStream('media'); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'media' ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Camera className="w-4 h-4"/> Media (Arts)</button>
              </div>
 
              <div className="p-4 max-h-[500px] overflow-y-auto">
@@ -1315,7 +1467,7 @@ export default function App() {
                         <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black ${idx < 3 ? 'bg-yellow-500 text-slate-900 shadow-lg shadow-yellow-500/40' : 'bg-slate-950 text-slate-500'}`}>{idx + 1}</span>
                         <div>
                           <p className="font-bold text-slate-200">{String(e.name)}</p>
-                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{leaderboardTab === 'pro' ? 'Max Level Reached' : 'Total Score'} <span className={`text-[9px] px-1.5 py-0.5 rounded ml-1 border ${e.stream === 'science' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-blue-400 border-blue-500/30 bg-blue-500/10'}`}>{e.stream === 'science' ? 'SCI' : 'COM'}</span></p>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{leaderboardTab === 'pro' ? 'Max Level Reached' : 'Total Score'} <span className={`text-[9px] px-1.5 py-0.5 rounded ml-1 border ${e.stream === 'science' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : (e.stream === 'grade5' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : (e.stream === 'media' ? 'text-pink-400 border-pink-500/30 bg-pink-500/10' : 'text-blue-400 border-blue-500/30 bg-blue-500/10'))}`}>{e.stream === 'science' ? 'SCI' : (e.stream === 'grade5' ? 'G5' : (e.stream === 'media' ? 'MED' : 'COM'))}</span></p>
                         </div>
                       </div>
                       <span className={`text-2xl font-black ${leaderboardTab === 'pro' ? 'text-purple-400' : 'text-blue-500'}`}>{leaderboardTab === 'pro' ? `Lvl ${Number(e.proLevel)}` : Number(e.score)} <span className="text-xs text-slate-500">{leaderboardTab === 'pro' ? '' : 'ලකුණු'}</span></span>
