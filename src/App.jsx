@@ -3,11 +3,11 @@ import {
   Trophy, Star, ArrowRight, RefreshCw, CheckCircle2, 
   XCircle, BookOpen, Loader2, Award, 
   ChevronRight, Brain, ArrowLeft, X, LayoutGrid, ListChecks, History, UserCircle,
-  ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker
+  ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker, Heart
 } from 'lucide-react';
 import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore, collection, addDoc, onSnapshot 
+  getFirestore, collection, addDoc, onSnapshot, doc, setDoc
 } from 'firebase/firestore';
 import { 
   getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken 
@@ -33,7 +33,7 @@ const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'commerce-quest-pro-40';
 
 // ==========================================
-// 1. COMMERCE QUESTION BANK (පෙර තිබූ ප්‍රශ්න)
+// 1. COMMERCE QUESTION BANK
 // ==========================================
 const commerceQuestionBank = [
   // --- PAPER 1 (40 Questions) ---
@@ -122,7 +122,7 @@ const commerceQuestionBank = [
 ];
 
 // ==========================================
-// 2. SCIENCE QUESTION BANK (නව විද්‍යා ප්‍රශ්න)
+// 2. SCIENCE QUESTION BANK (+ Hard Challenge)
 // ==========================================
 const scienceQuestionBank = [
   // --- PAPER 1 (40 Questions) ---
@@ -207,13 +207,24 @@ const scienceQuestionBank = [
   { paperId: 2, id: 177, subject: "SCI", question: "ද්විත්ව හෙලික්ස (Double Helix) ආකෘතියක් ඇත්තේ කුමකටද?", options: ["ප්‍රෝටීන වලට", "DNA අණුවට", "RNA අණුවට", "ලිපිඩ වලට"], answer: 1, explanation: "වොට්සන් සහ ක්‍රික් විසින් සොයාගන්නා ලද පරිදි DNA අණුව ද්විත්ව හෙලික්ස හැඩයක් ගනී." },
   { paperId: 2, id: 178, subject: "SCI", question: "වස්තුවක ගම්‍යතාවය (Momentum) වෙනස් වීමේ සීඝ්‍රතාව සමාන වන්නේ කුමකටද?", options: ["ප්‍රවේගයට", "ත්වරණයට", "යොදන ලද බලයට", "ස්කන්ධයට"], answer: 2, explanation: "නිව්ටන්ගේ දෙවන නියමයට අනුව, ගම්‍යතා වෙනස්වීමේ සීඝ්‍රතාවය වස්තුව මත යොදන සම්ප්‍රයුක්ත බලයට අනුලෝමව සමානුපාතික වේ (F = ma)." },
   { paperId: 2, id: 179, subject: "SCI", question: "එකිනෙකට වෙනස් ලෝහ දෙකක් මිශ්‍ර කර සාදාගන්නා ද්‍රව්‍යය කුමක්ද?", options: ["සමස්ථානිකය", "ලවණය", "මිශ්‍ර ලෝහය (Alloy)", "බහුඅවයවිකය"], answer: 2, explanation: "ලෝහයක ගුණ වැඩිදියුණු කිරීම සඳහා තවත් ලෝහයක් හෝ අලෝහයක් මිශ්‍ර කිරීමෙන් මිශ්‍ර ලෝහ (උදා: වානේ, පිත්තල) සාදනු ලැබේ." },
-  { paperId: 2, id: 180, subject: "SCI", question: "මිනිස් සිරුරේ විශාලතම ග්‍රන්ථිය කුමක්ද?", options: ["තයිරොයිඩ් ග්‍රන්ථිය", "අක්මාව (Liver)", "අග්න්‍යාශය", "පිටියුටරි ග්‍රන්ථිය"], answer: 1, explanation: "උදර කුහරයේ දකුණු පසින් පිහිටා ඇති අක්මාව මිනිස් සිරුරේ ඇති විශාලතම අභ්‍යන්තර අවයවය මෙන්ම ග්‍රන්ථියද වේ." }
+  { paperId: 2, id: 180, subject: "SCI", question: "මිනිස් සිරුරේ විශාලතම ග්‍රන්ථිය කුමක්ද?", options: ["තයිරොයිඩ් ග්‍රන්ථිය", "අක්මාව (Liver)", "අග්න්‍යාශය", "පිටියුටරි ග්‍රන්ථිය"], answer: 1, explanation: "උදර කුහරයේ දකුණු පසින් පිහිටා ඇති අක්මාව මිනිස් සිරුරේ ඇති විශාලතම අභ්‍යන්තර අවයවය මෙන්ම ග්‍රන්ථියද වේ." },
+  
+  // --- HARD CHALLENGE (Levels) ---
+  { paperId: 'H1', id: 201, subject: "SCI", question: "කළු කුහරයක (Black Hole) 'සිදුවීම් ක්ෂිතිජය' (Event Horizon) යනු කුමක්ද?", options: ["එහි කේන්ද්‍රය", "ආලෝකයට පවා ගැලවිය නොහැකි සීමාව", "එය වටා ඇති තරු පද්ධතිය", "එහි උෂ්ණත්වය උපරිම වන ස්ථානය"], answer: 1, explanation: "සිදුවීම් ක්ෂිතිජය යනු කළු කුහරයේ ගුරුත්වාකර්ෂණය කොතරම් ප්‍රබලද යත් ආලෝකයට පවා ඉන් ගැලවිය නොහැකි සීමාවයි." },
+  { paperId: 'H1', id: 202, subject: "SCI", question: "ක්වොන්ටම් භෞතිකයේ 'Quantum Entanglement' යන්නෙන් අදහස් වන්නේ?", options: ["අංශු දෙකක් ගැටීම", "දුර නොසලකා අංශු දෙකක් අතර ඇතිවන ක්ෂණික අන්තර්ක්‍රියාව", "ආලෝකයේ වේගය ඉක්මවා යාම", "පරමාණුක න්‍යෂ්ටි බිඳ වැටීම"], answer: 1, explanation: "එක් අංශුවක තත්ත්වය වෙනස් වන විට, කෙතරම් දුරකින් වුවද අනෙක් අංශුවද ඊට අනුරූපව ක්ෂණිකව වෙනස් වීමයි." },
+  { paperId: 'H1', id: 203, subject: "SCI", question: "CRISPR-Cas9 තාක්ෂණය මූලිකව භාවිතා වන්නේ කුමක් සඳහාද?", options: ["නව මූලද්‍රව්‍ය සෑදීමට", "ජාන සංස්කරණයට (Gene Editing)", "අභ්‍යවකාශ ගවේෂණයට", "සුපිරි පරිගණක සැදීමට"], answer: 1, explanation: "CRISPR යනු ජීවීන්ගේ DNA ඉතා නිවැරදිව කපා ඉවත් කිරීමට හෝ වෙනස් කිරීමට භාවිතා කරන ජාන සංස්කරණ තාක්ෂණයකි." },
+
+  { paperId: 'H2', id: 204, subject: "SCI", question: "හයිසන්බර්ග්ගේ අවිනිශ්චිතතා මූලධර්මය (Uncertainty Principle) ප්‍රකාශ කරන්නේ කුමක්ද?", options: ["ශක්තිය මැවිය නොහැක", "අංශුවක පිහිටීම හා ගම්‍යතාවය එකවර නිශ්චිතව මැනිය නොහැක", "විශ්වය නිරන්තරයෙන් ප්‍රසාරණය වේ", "කාලය නිරපේක්ෂ වේ"], answer: 1, explanation: "ක්වොන්ටම් අංශුවක (උදා: ඉලෙක්ට්‍රෝනයක) පිහිටීම සහ ප්‍රවේගය (ගම්‍යතාවය) යන දෙකම එකවර 100% ක් නිවැරදිව මැනිය නොහැකි බව මෙයින් කියවේ." },
+  { paperId: 'H2', id: 205, subject: "SCI", question: "'ශ්‍රෝඩින්ගර්ගේ බළලා' (Schrödinger's cat) නම් චින්තන පරීක්ෂණය මගින් පැහැදිලි කරන්නේ කුමන සංකල්පයද?", options: ["සාපේක්ෂතාවාදය", "ක්වොන්ටම් උපරිස්ථාපනය (Quantum Superposition)", "තාපගති විද්‍යාව", "කළු කුහර වල හැසිරීම"], answer: 1, explanation: "නිරීක්ෂණය කරන තුරු පද්ධතියක් එකවර තත්ත්වයන් කිහිපයකම (උදා: බළලා එකවර ජීවමානව හා මියගොස්) පැවතීමේ ක්වොන්ටම් සංකල්පයයි." },
+
+  { paperId: 'H3', id: 206, subject: "SCI", question: "විශ්වයේ ප්‍රසාරණය වේගවත් වීමට හේතු වන අදෘශ්‍යමාන ශක්තිය කුමක්ද?", options: ["අඳුරු පදාර්ථය (Dark Matter)", "ගුරුත්වාකර්ෂණය", "අඳුරු ශක්තිය (Dark Energy)", "විද්‍යුත් චුම්භකත්වය"], answer: 2, explanation: "අඳුරු ශක්තිය (Dark Energy) යනු විශ්වයේ ප්‍රසාරණය වේගවත් කරන, තවමත් හඳුනා නොගත් අද්භූත බලවේගයයි." },
+  { paperId: 'H3', id: 207, subject: "SCI", question: "ප්‍රෝටීන සංස්ලේෂණයේදී DNA වල ඇති තොරතුරු mRNA බවට පත්වීමේ ක්‍රියාවලිය හඳුන්වන්නේ?", options: ["පරිවර්තනය (Translation)", "ප්‍රතිවලිත වීම", "ප්‍රතිලේඛනය (Transcription)", "විකෘතිය"], answer: 2, explanation: "DNA වල ඇති ජානමය කේතය (code) RNA අණුවක් බවට පිටපත් කිරීමේ ක්‍රියාවලිය ප්‍රතිලේඛනය වේ." }
 ];
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [gameState, setGameState] = useState('home'); // home -> start -> select_paper -> playing -> result
-  const [selectedStream, setSelectedStream] = useState(null); // 'commerce' or 'science'
+  const [gameState, setGameState] = useState('home'); 
+  const [selectedStream, setSelectedStream] = useState(null); 
   
   const [selectedPaper, setSelectedPaper] = useState(null);
   const [currentQuestions, setCurrentQuestions] = useState([]);
@@ -222,14 +233,21 @@ export default function App() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
+  
   const [leaderboard, setLeaderboard] = useState([]);
   const [userHistory, setUserHistory] = useState([]);
+  
   const [userName, setUserName] = useState('');
+  const [nameConfirmed, setNameConfirmed] = useState(false); // නව වෙනස: නම තහවුරු කළාද යන්න
+
   const [isLoading, setIsLoading] = useState(true);
   const [userVote, setUserVote] = useState(null);
   const [configError, setConfigError] = useState(false);
   const [userAnswers, setUserAnswers] = useState([]);
   const [showReview, setShowReview] = useState(false);
+
+  const [totalLikes, setTotalLikes] = useState(0);
+  const [totalUnlikes, setTotalUnlikes] = useState(0);
 
   // Firebase Auth
   useEffect(() => {
@@ -266,7 +284,36 @@ export default function App() {
     const q = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setLeaderboard(docs.sort((a, b) => b.score - a.score));
+      
+      let likes = 0;
+      let unlikes = 0;
+      const userStats = {};
+
+      docs.forEach(d => {
+        if (d.vote === 'like') likes++;
+        if (d.vote === 'dislike') unlikes++;
+
+        const uid = d.userId || d.name; 
+        if (!userStats[uid]) {
+            userStats[uid] = { name: d.name, stream: d.stream, papers: {} };
+        }
+        const pid = d.paperId;
+        if (!userStats[uid].papers[pid] || userStats[uid].papers[pid] < d.score) {
+            userStats[uid].papers[pid] = d.score;
+        }
+      });
+
+      const finalLeaderboard = Object.values(userStats).map(u => {
+         const total = Object.values(u.papers).reduce((acc, val) => acc + val, 0);
+         return { ...u, score: total };
+      }).sort((a,b) => b.score - a.score);
+
+      setLeaderboard(finalLeaderboard);
+      setTotalLikes(likes);
+      setTotalUnlikes(unlikes);
+
+    }, (error) => {
+      console.error("Leaderboard Error:", error);
     });
     return () => unsubscribe();
   }, [user]);
@@ -282,6 +329,29 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
+  // Auto-Save Function
+  const autoSaveProgress = async (currentScore, isCompleted = false, voteVal = userVote) => {
+    if (!user || !userName.trim()) return;
+    const docId = `${user.uid}_${selectedStream}_${selectedPaper}`;
+    const scoreData = {
+      name: userName,
+      score: currentScore,
+      paperId: selectedPaper,
+      stream: selectedStream,
+      timestamp: Date.now(),
+      userId: user.uid,
+      completed: isCompleted,
+      ...(voteVal && { vote: voteVal })
+    };
+
+    try {
+      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', docId), scoreData);
+      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'scores', docId), scoreData);
+    } catch (err) { 
+      console.error("Autosave Error:", err);
+    }
+  };
+
   const selectStream = (streamName) => {
     setSelectedStream(streamName);
     setGameState('start');
@@ -296,7 +366,7 @@ export default function App() {
     const paperQuestions = activeBank.filter(q => q.paperId === paperId);
     
     if (paperQuestions.length === 0) {
-      alert(`මෙම ප්‍රශ්න පත්‍රය (Paper ${paperId}) සඳහා තවමත් ප්‍රශ්න ඇතුළත් කර නැත. කරුණාකර Paper 1 හෝ 2 තෝරන්න.`);
+      alert(`මෙම ප්‍රශ්න පත්‍රය සඳහා තවමත් ප්‍රශ්න ඇතුළත් කර නැත.`);
       return;
     }
     setSelectedPaper(paperId);
@@ -318,7 +388,9 @@ export default function App() {
     if (selectedOption === null || showFeedback) return;
     const correct = selectedOption === currentQuestions[currentIndex].answer;
     setIsCorrect(correct);
-    if (correct) setScore(prev => prev + 1);
+    
+    const newScore = correct ? score + 1 : score;
+    if (correct) setScore(newScore);
     
     setUserAnswers(prev => [...prev, {
       questionIndex: currentIndex,
@@ -327,6 +399,7 @@ export default function App() {
     }]);
 
     setShowFeedback(true);
+    autoSaveProgress(newScore);
   };
 
   const skipQuestion = () => {
@@ -341,6 +414,7 @@ export default function App() {
     }]);
 
     setShowFeedback(true);
+    autoSaveProgress(score);
   };
 
   const nextStep = () => {
@@ -350,42 +424,13 @@ export default function App() {
       setCurrentIndex(currentIndex + 1);
     } else {
       setGameState('result');
+      autoSaveProgress(score, true);
     }
   };
 
-  const saveScore = async () => {
-    if (!userName.trim()) {
-      alert("කරුණාකර ඔබේ නම ඇතුළත් කරන්න.");
-      return;
-    }
-    if (!userVote) {
-      alert("කරුණාකර ප්‍රශ්න පත්‍රය සඳහා ඔබේ Like හෝ Dislike ලබා දෙන්න.");
-      return;
-    }
-    if (!user) {
-      alert("දෝෂයක්: පරිශීලක ගිණුම සම්බන්ධ වී නැත.");
-      return;
-    }
-
-    try {
-      const scoreData = {
-        name: userName,
-        score: score,
-        paperId: selectedPaper,
-        stream: selectedStream,
-        timestamp: Date.now(),
-        userId: user.uid,
-        vote: userVote
-      };
-      
-      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard'), scoreData);
-      await addDoc(collection(db, 'artifacts', appId, 'users', user.uid, 'scores'), scoreData);
-      
-      setGameState('leaderboard');
-    } catch (err) { 
-      console.error("Save Score Error:", err);
-      alert(`දත්ත සුරැකීමේදී ගැටලුවක් ඇති විය: ${err.message}`);
-    }
+  const finishAndSaveVote = (voteType) => {
+    setUserVote(voteType);
+    autoSaveProgress(score, true, voteType);
   };
 
   if (configError) {
@@ -402,12 +447,10 @@ export default function App() {
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-blue-500 w-10 h-10" /></div>;
 
-  // Stream-specific UI colors and icons
   const isScience = selectedStream === 'science';
   const themeColor = isScience ? 'emerald' : 'blue';
   const ThemeIcon = isScience ? Microscope : Brain;
 
-  // Filter top scorers for home page
   const topCommerce = leaderboard.filter(e => e.stream === 'commerce').slice(0, 5);
   const topScience = leaderboard.filter(e => e.stream === 'science').slice(0, 5);
 
@@ -437,52 +480,90 @@ export default function App() {
           </div>
         )}
 
-        {/* HOME SCREEN - Stream Selection & Leaderboards */}
+        {/* HOME SCREEN */}
         {gameState === 'home' && (
           <div className="flex flex-col items-center justify-center py-12 animate-in zoom-in duration-500 min-h-[80vh]">
+            
+            <div className="flex gap-4 mb-6">
+               <div className="flex items-center gap-2 bg-emerald-950/40 border border-emerald-900 px-4 py-2 rounded-full text-emerald-400 text-xs font-bold">
+                 <ThumbsUp className="w-4 h-4" /> {totalLikes} Likes
+               </div>
+               <div className="flex items-center gap-2 bg-rose-950/40 border border-rose-900 px-4 py-2 rounded-full text-rose-400 text-xs font-bold">
+                 <ThumbsDown className="w-4 h-4" /> {totalUnlikes} Unlikes
+               </div>
+            </div>
+
             <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 font-bold text-sm mb-10 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
               <Star className="w-5 h-5 fill-yellow-500 text-yellow-500" /> Edu Quest වෙත සාදරයෙන් පිළිගනිමු!
             </div>
 
-            <h1 className="text-4xl md:text-5xl font-black mb-12 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 drop-shadow-lg text-center leading-tight">
+            <h1 className="text-4xl md:text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 drop-shadow-lg text-center leading-tight">
               ඔබේ විෂය ධාරාව තෝරන්න
             </h1>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
-              
-              {/* Commerce Card */}
-              <div 
-                onClick={() => selectStream('commerce')} 
-                className="cursor-pointer group relative bg-slate-900/80 border-2 border-blue-500/30 rounded-[2.5rem] p-10 hover:border-blue-500 hover:bg-blue-900/20 hover:shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-300 flex flex-col items-center text-center overflow-hidden"
-              >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
-                <div className="bg-blue-500/20 p-5 rounded-3xl mb-6 text-blue-400 group-hover:scale-110 transition-transform duration-300">
-                  <Calculator className="w-16 h-16" />
-                </div>
-                <h2 className="text-3xl font-black text-white mb-3">වාණිජ අංශය</h2>
-                <p className="text-blue-200/60 font-medium mb-6">BS | ACC | ECON ප්‍රශ්න පත්‍ර</p>
-                <span className="text-blue-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
+            {/* NAME CONFIRMATION SECTION */}
+            {!nameConfirmed ? (
+              <div className="w-full max-w-sm mb-12 animate-in slide-in-from-bottom-4 bg-slate-900/50 p-8 rounded-3xl border border-slate-800 shadow-2xl">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2 mb-4">
+                  <UserCircle className="w-5 h-5" /> ආරම්භ කිරීමට පෙර නම ඇතුළත් කරන්න
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="ඔබේ නම (Your Name)..." 
+                  value={userName}
+                  onChange={(e) => setUserName(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && userName.trim() && setNameConfirmed(true)}
+                  className="w-full p-4 mb-4 bg-slate-950 border-2 border-slate-700 rounded-2xl focus:border-indigo-500 outline-none text-center font-bold text-white text-lg transition-all"
+                />
+                <button 
+                  onClick={() => setNameConfirmed(true)}
+                  disabled={!userName.trim()}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg"
+                >
+                  ඉදිරියට යන්න (Continue) <ArrowRight className="w-5 h-5" />
+                </button>
               </div>
+            ) : (
+              /* STREAM SELECTION SECTION */
+              <div className="w-full animate-in zoom-in duration-300 flex flex-col items-center">
+                <h2 className="text-xl font-bold text-slate-300 mb-6">සුබ පැතුම් <span className="text-indigo-400">{userName}</span>! දැන් ඔබගේ අංශය තෝරාගන්න.</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-3xl">
+                  {/* Commerce Card */}
+                  <div 
+                    onClick={() => selectStream('commerce')} 
+                    className="cursor-pointer group relative bg-slate-900/80 border-2 border-blue-500/30 rounded-[2.5rem] p-10 hover:border-blue-500 hover:bg-blue-900/20 hover:shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-300 flex flex-col items-center text-center overflow-hidden"
+                  >
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
+                    <div className="bg-blue-500/20 p-5 rounded-3xl mb-6 text-blue-400 group-hover:scale-110 transition-transform duration-300">
+                      <Calculator className="w-16 h-16" />
+                    </div>
+                    <h2 className="text-3xl font-black text-white mb-3">වාණිජ අංශය</h2>
+                    <p className="text-blue-200/60 font-medium mb-6">BS | ACC | ECON ප්‍රශ්න පත්‍ර</p>
+                    <span className="text-blue-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
+                  </div>
 
-              {/* Science Card */}
-              <div 
-                onClick={() => selectStream('science')} 
-                className="cursor-pointer group relative bg-slate-900/80 border-2 border-emerald-500/30 rounded-[2.5rem] p-10 hover:border-emerald-500 hover:bg-emerald-900/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] transition-all duration-300 flex flex-col items-center text-center overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
-                <div className="bg-emerald-500/20 p-5 rounded-3xl mb-6 text-emerald-400 group-hover:scale-110 transition-transform duration-300">
-                  <Atom className="w-16 h-16" />
+                  {/* Science Card */}
+                  <div 
+                    onClick={() => selectStream('science')} 
+                    className="cursor-pointer group relative bg-slate-900/80 border-2 border-emerald-500/30 rounded-[2.5rem] p-10 hover:border-emerald-500 hover:bg-emerald-900/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] transition-all duration-300 flex flex-col items-center text-center overflow-hidden"
+                  >
+                    <div className="absolute top-0 left-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
+                    <div className="bg-emerald-500/20 p-5 rounded-3xl mb-6 text-emerald-400 group-hover:scale-110 transition-transform duration-300">
+                      <Atom className="w-16 h-16" />
+                    </div>
+                    <h2 className="text-3xl font-black text-white mb-3">විද්‍යා අංශය</h2>
+                    <p className="text-emerald-200/60 font-medium mb-6">භෞතික විද්‍යාව | රසායන විද්‍යාව | ජීව විද්‍යාව</p>
+                    <span className="text-emerald-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
+                  </div>
                 </div>
-                <h2 className="text-3xl font-black text-white mb-3">විද්‍යා අංශය</h2>
-                <p className="text-emerald-200/60 font-medium mb-6">භෞතික විද්‍යාව | රසායන විද්‍යාව | ජීව විද්‍යාව</p>
-                <span className="text-emerald-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
+                <button onClick={() => setNameConfirmed(false)} className="mt-8 text-slate-500 hover:text-slate-300 text-sm font-bold underline underline-offset-4">වෙනත් නමක් ඇතුළත් කරන්න</button>
               </div>
-            </div>
+            )}
 
-            {/* TOP SCORERS SECTION ON HOME PAGE */}
+            {/* TOP SCORERS SECTION */}
             <div className="w-full max-w-4xl mt-16 animate-in fade-in slide-in-from-bottom-8">
               <h3 className="text-2xl font-black text-center mb-8 text-white flex items-center justify-center gap-3">
-                <Trophy className="text-yellow-500 w-8 h-8" /> ප්‍රමුඛතා පුවරුව (Top Scorers)
+                <Trophy className="text-yellow-500 w-8 h-8" /> මුළු ලකුණු පුවරුව (Cumulative Top)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
@@ -498,7 +579,7 @@ export default function App() {
                         </div>
                         <div className="text-right">
                           <span className="text-blue-500 font-black">{entry.score}</span>
-                          <span className="text-[9px] block text-slate-500 uppercase">Paper {entry.paperId}</span>
+                          <span className="text-[9px] block text-slate-500 uppercase">Total</span>
                         </div>
                       </div>
                     ))}
@@ -517,7 +598,7 @@ export default function App() {
                         </div>
                         <div className="text-right">
                           <span className="text-emerald-500 font-black">{entry.score}</span>
-                          <span className="text-[9px] block text-slate-500 uppercase">Paper {entry.paperId}</span>
+                          <span className="text-[9px] block text-slate-500 uppercase">Total</span>
                         </div>
                       </div>
                     ))}
@@ -531,11 +612,10 @@ export default function App() {
                 </button>
               </div>
             </div>
-
           </div>
         )}
 
-        {/* Start Screen */}
+        {/* Start Screen (Stream inside) */}
         {gameState === 'start' && (
           <div className="text-center py-12 animate-in zoom-in duration-500">
             <div className="relative w-32 h-32 mx-auto mb-8 group">
@@ -550,7 +630,7 @@ export default function App() {
             </h2>
             
             <p className="text-slate-400 mb-10 max-w-lg mx-auto leading-relaxed text-lg">
-              ඔබේ දැනුම පරීක්ෂා කරගන්න හොඳම තැන! ප්‍රශ්න පත්‍ර 40 ක අභියෝගයට මුහුණ දී ලකුණු පුවරුවේ <span className={`text-white font-black bg-${themeColor}-500/20 px-2 py-1 rounded border border-${themeColor}-500/30`}>#1</span> ස්ථානය දිනාගන්න.
+              සුබ පැතුම් <b className="text-white">{userName}</b>! ප්‍රශ්න පත්‍රවල අභියෝගයට මුහුණ දී ලකුණු පුවරුවේ <span className={`text-white font-black bg-${themeColor}-500/20 px-2 py-1 rounded border border-${themeColor}-500/30`}>#1</span> ස්ථානය දිනාගන්න.
             </p>
             
             <button 
@@ -565,13 +645,14 @@ export default function App() {
           </div>
         )}
 
-        {/* Paper Selection Grid (40 Papers) */}
+        {/* Paper Selection */}
         {gameState === 'select_paper' && (
           <div className="animate-in fade-in duration-500">
             <div className="flex items-center gap-4 mb-8">
               <button onClick={() => setGameState('start')} className="p-2 hover:bg-slate-900 rounded-lg"><ArrowLeft /></button>
-              <h2 className="text-2xl font-black uppercase">ප්‍රශ්න පත්‍රය තෝරන්න</h2>
+              <h2 className="text-2xl font-black uppercase">සාමාන්‍ය ප්‍රශ්න පත්‍ර</h2>
             </div>
+            
             <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
               {Array.from({ length: 40 }, (_, i) => (
                 <button
@@ -584,7 +665,24 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <p className="text-center text-slate-500 mt-8 text-sm animate-pulse">දැනට Paper 1 සහ Paper 2 සඳහා ප්‍රශ්න ඇතුළත් කර ඇත.</p>
+            
+            {/* HARD CHALLENGE SECTION FOR SCIENCE */}
+            {isScience && (
+              <div className="mt-12 border-t border-slate-800 pt-8 animate-in slide-in-from-bottom-4">
+                <h3 className="text-xl font-black uppercase text-rose-500 mb-6 flex items-center gap-2">
+                  <Zap className="w-6 h-6" /> Hard Challenge (Levels)
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                   {['H1', 'H2', 'H3'].map(lvl => (
+                      <button key={lvl} onClick={() => selectPaper(lvl)} className="bg-rose-950/30 border border-rose-900 hover:bg-rose-900 hover:border-rose-500 rounded-xl p-4 flex flex-col items-center group transition-all shadow-[0_0_15px_rgba(225,29,72,0.1)] hover:shadow-[0_0_30px_rgba(225,29,72,0.4)]">
+                        <span className="text-rose-400 font-bold uppercase text-xs mb-1 tracking-widest">Level</span>
+                        <span className="text-3xl font-black text-white">{lvl}</span>
+                      </button>
+                   ))}
+                </div>
+              </div>
+            )}
+            
           </div>
         )}
 
@@ -659,7 +757,7 @@ export default function App() {
                   ) : (
                     <div className="flex gap-4">
                       <button onClick={skipQuestion} className="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-4 rounded-xl transition-all">
-                        මඟ හරින්න (Skip)
+                        මඟ හරින්න
                       </button>
                       <button 
                         onClick={checkAnswer} 
@@ -675,55 +773,43 @@ export default function App() {
           </div>
         )}
 
-        {/* Result & Score Save */}
+        {/* Result Screen */}
         {gameState === 'result' && (
           <div className="bg-slate-900 border border-slate-800 rounded-[3rem] p-10 text-center animate-in zoom-in shadow-2xl">
             <Award className="w-20 h-20 text-yellow-500 mx-auto mb-6 drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]" />
-            <h2 className="text-3xl font-black mb-2 uppercase">විශිෂ්ටයි!</h2>
-            <p className="text-slate-400 mb-2">ඔබ {isScience ? 'විද්‍යා' : 'වාණිජ'} ප්‍රශ්න පත්‍රය සාර්ථකව අවසන් කළා.</p>
-            <div className={`text-7xl font-black text-${themeColor}-500 my-8 drop-shadow-[0_0_20px_rgba(0,0,0,0.3)]`}>{score} <span className="text-xl text-slate-500">/ 40</span></div>
+            <h2 className="text-3xl font-black mb-2 uppercase">විශිෂ්ටයි {userName}!</h2>
+            <p className="text-slate-400 mb-2">ඔබ {isScience ? 'විද්‍යා' : 'වාණිජ'} ප්‍රශ්න පත්‍රය අවසන් කළා.</p>
+            <div className={`text-7xl font-black text-${themeColor}-500 my-8 drop-shadow-[0_0_20px_rgba(0,0,0,0.3)]`}>{score} <span className="text-xl text-slate-500">/ {currentQuestions.length}</span></div>
             
-            <div className="mb-8 p-6 bg-slate-950/80 rounded-2xl border border-slate-800">
+            {/* Auto Save Message */}
+            <div className="bg-slate-800/50 text-slate-300 text-sm font-bold p-3 rounded-full inline-flex items-center gap-2 mb-8 border border-slate-700">
+               <CheckCircle2 className="w-4 h-4 text-emerald-400" /> ඔබේ ලකුණු ස්වයංක්‍රීයව සුරකින ලදි.
+            </div>
+
+            <div className="mb-8 p-6 bg-slate-950/80 rounded-2xl border border-slate-800 max-w-sm mx-auto">
               <p className="text-slate-300 font-bold mb-4">ඔබ මෙම ප්‍රශ්න පත්‍රයට කැමතිද?</p>
               <div className="flex justify-center gap-6">
                 <button 
-                  onClick={() => setUserVote('like')}
+                  onClick={() => finishAndSaveVote('like')}
                   className={`flex flex-col items-center gap-2 px-8 py-4 rounded-xl transition-all border-2 ${userVote === 'like' ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 scale-105' : 'border-slate-800 text-slate-500 hover:border-emerald-500/50 hover:text-emerald-400'}`}
                 >
                   <ThumbsUp className={`w-8 h-8 ${userVote === 'like' ? 'fill-emerald-500' : ''}`} />
-                  <span className="text-xs font-black uppercase tracking-widest">මනාපයි (Like)</span>
+                  <span className="text-xs font-black uppercase tracking-widest">Like</span>
                 </button>
                 <button 
-                  onClick={() => setUserVote('dislike')}
+                  onClick={() => finishAndSaveVote('dislike')}
                   className={`flex flex-col items-center gap-2 px-8 py-4 rounded-xl transition-all border-2 ${userVote === 'dislike' ? 'border-rose-500 bg-rose-500/20 text-rose-400 scale-105' : 'border-slate-800 text-slate-500 hover:border-rose-500/50 hover:text-rose-400'}`}
                 >
                   <ThumbsDown className={`w-8 h-8 ${userVote === 'dislike' ? 'fill-rose-500' : ''}`} />
-                  <span className="text-xs font-black uppercase tracking-widest">අමනාපයි (Unlike)</span>
+                  <span className="text-xs font-black uppercase tracking-widest">Unlike</span>
                 </button>
               </div>
-              {!userVote && <p className="text-rose-500/80 text-xs mt-3 animate-pulse">කරුණාකර ඉදිරියට යාමට පෙර ඔබේ ප්‍රතිචාරය දක්වන්න.</p>}
             </div>
 
             <div className="space-y-4 max-w-sm mx-auto">
-              <div className="text-left">
-                <label className={`text-xs font-bold text-${themeColor}-400 uppercase tracking-widest ml-2`}>ඔබේ නම (YOUR NAME)</label>
-                <input 
-                  type="text" 
-                  placeholder="නම මෙහි ලියන්න..." 
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  className={`w-full mt-2 p-5 bg-slate-950 border-2 border-slate-800 rounded-2xl focus:border-${themeColor}-500 outline-none text-center font-bold text-white text-lg transition-all`}
-                />
-              </div>
-              
-              <button 
-                onClick={saveScore} 
-                disabled={!userName.trim() || !userVote} 
-                className="w-full bg-emerald-600 hover:bg-emerald-500 py-5 rounded-2xl font-black shadow-lg disabled:opacity-30 disabled:cursor-not-allowed transition-all text-white mt-4"
-              >
-                ලකුණු සුරකින්න (Save Score)
+              <button onClick={() => setGameState('home')} className="w-full bg-slate-800 hover:bg-slate-700 py-4 rounded-2xl font-black text-white transition-all flex items-center justify-center gap-2">
+                 <LayoutGrid className="w-5 h-5"/> මුල් මෙනුවට
               </button>
-              <button onClick={() => setGameState('home')} className="w-full text-slate-500 hover:text-white font-bold py-2 flex items-center justify-center gap-2 transition-colors"><ArrowLeft className="w-4 h-4" /> මුල් මෙනුවට</button>
             </div>
 
             {/* Answer Review Section */}
@@ -813,23 +899,29 @@ export default function App() {
           <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden animate-in fade-in">
              <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
                <h2 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3">
-                 <Trophy className="text-yellow-500" /> Leaderboard
+                 <Trophy className="text-yellow-500" /> සම්පූර්ණ ලකුණු පුවරුව
                </h2>
                <button onClick={() => setGameState('home')} className="p-2 bg-slate-950 border border-slate-800 rounded-lg hover:text-rose-400 transition-colors"><X /></button>
              </div>
+             
+             {/* Stream Filter */}
+             <div className="flex gap-2 p-4 bg-slate-950 border-b border-slate-800">
+                <button onClick={() => setSelectedStream(null)} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${!selectedStream ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>සියල්ල</button>
+                <button onClick={() => setSelectedStream('commerce')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'commerce' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Calculator className="w-4 h-4"/> Commerce</button>
+                <button onClick={() => setSelectedStream('science')} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'science' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Atom className="w-4 h-4"/> Science</button>
+             </div>
+
              <div className="p-4 max-h-[500px] overflow-y-auto">
                 {leaderboard.filter(e => e.stream === selectedStream || !selectedStream).length === 0 ? <p className="p-16 text-center text-slate-600 font-bold">තවමත් දත්ත නැත...</p> : 
                   leaderboard
-                    // Option to filter leaderboard by selected stream if one is selected, else show all
                     .filter(e => e.stream === selectedStream || !selectedStream)
-                    .slice(0, 50)
                     .map((e, idx) => (
-                    <div key={e.id} className="flex items-center justify-between p-5 hover:bg-slate-800/50 rounded-2xl mb-1 border-b border-slate-800/50 last:border-0">
+                    <div key={e.name+e.stream} className="flex items-center justify-between p-5 hover:bg-slate-800/50 rounded-2xl mb-1 border-b border-slate-800/50 last:border-0">
                       <div className="flex items-center gap-5">
                         <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black ${idx < 3 ? 'bg-yellow-500 text-slate-900 shadow-lg shadow-yellow-500/40' : 'bg-slate-950 text-slate-500'}`}>{idx + 1}</span>
                         <div>
                           <p className="font-bold text-slate-200">{e.name}</p>
-                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">Paper {e.paperId} <span className={`text-[9px] px-1.5 py-0.5 rounded ml-1 border ${e.stream === 'science' ? 'text-emerald-400 border-emerald-500/30' : 'text-blue-400 border-blue-500/30'}`}>{e.stream === 'science' ? 'SCI' : 'COM'}</span></p>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">Total Score <span className={`text-[9px] px-1.5 py-0.5 rounded ml-1 border ${e.stream === 'science' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-blue-400 border-blue-500/30 bg-blue-500/10'}`}>{e.stream === 'science' ? 'SCI' : 'COM'}</span></p>
                         </div>
                       </div>
                       <span className="text-2xl font-black text-blue-500">{e.score}</span>
