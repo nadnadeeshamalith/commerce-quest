@@ -513,6 +513,7 @@ export default function App() {
   
   const [userName, setUserName] = useState('');
   const [nameConfirmed, setNameConfirmed] = useState(false);
+  const [isExiting, setIsExiting] = useState(false); // <-- මෙම නව State එක අලුතින් එකතු කරන්න
 
   const [isLoading, setIsLoading] = useState(true);
   const [userVote, setUserVote] = useState(null);
@@ -525,6 +526,7 @@ export default function App() {
   
   const [leaderboardTab, setLeaderboardTab] = useState('normal'); 
   const [showAllLeaderboard, setShowAllLeaderboard] = useState(false); 
+  const [grandLeaderboardTab, setGrandLeaderboardTab] = useState('grade5'); // <-- මෙම නව State එක අලුතින් එකතු කරන්න
 
   const [timeLeft, setTimeLeft] = useState(0);
 
@@ -568,14 +570,18 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  const handleNameConfirm = async () => {
+  const handleNameConfirm = () => {
     if (!userName.trim()) return;
-    setNameConfirmed(true);
-    if (user) {
-      try {
-        await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info'), { name: userName });
-      } catch (e) { console.error("Name save error:", e); }
-    }
+    setIsExiting(true); // Animation එක ආරම්භ කිරීම
+    setTimeout(async () => {
+      setNameConfirmed(true);
+      setIsExiting(false);
+      if (user) {
+        try {
+          await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info'), { name: userName });
+        } catch (e) { console.error("Name save error:", e); }
+      }
+    }, 500); // Animation එක අවසන් වීමට මිලි තත්පර 500ක් ලබා දීම
   };
 
   // Leaderboard Sync (Aggregated Cumulative Scoring - SAFE FOR OLD DATA)
@@ -855,7 +861,7 @@ export default function App() {
 
   const gameBgClass = isHardMode ? "bg-rose-950 border-rose-600 shadow-[0_0_50px_rgba(225,29,72,0.3)]" : "bg-slate-900 border-slate-800 shadow-2xl";
 
-  const topOverallScorer = [...leaderboard].sort((a,b) => b.score - a.score)[0];
+  const topOverall = [...leaderboard].filter(e => e.score > 0).sort((a,b) => b.score - a.score).slice(0, 10);
   const topCommerce = leaderboard.filter(e => e.stream === 'commerce').sort((a,b) => b.score - a.score).slice(0, 5);
   const topScience = leaderboard.filter(e => e.stream === 'science').sort((a,b) => b.score - a.score).slice(0, 5);
   const topGrade5 = leaderboard.filter(e => e.stream === 'grade5').sort((a,b) => b.score - a.score).slice(0, 5);
@@ -912,53 +918,66 @@ export default function App() {
                </div>
                {hardModeChamp && (
                  <div className="flex items-center gap-2 bg-purple-900/30 border border-purple-500/50 px-4 py-2 rounded-full text-purple-300 text-xs font-bold animate-pulse shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-                   <CrownIcon /> PRO Mode King: {String(hardModeChamp.name)}
+                   <CrownIcon className="w-4 h-4" /> PRO Mode King: {String(hardModeChamp.name)}
                  </div>
                )}
             </div>
-
-            {/* OVERALL CHAMPION HIGHLIGHT */}
-            {topOverallScorer && topOverallScorer.score > 0 && (
-              <div className="mb-10 p-1 rounded-[2rem] bg-gradient-to-r from-yellow-600 via-yellow-400 to-yellow-600 animate-pulse shadow-[0_0_40px_rgba(234,179,8,0.4)]">
-                 <div className="bg-slate-950 px-8 py-4 rounded-[1.9rem] flex items-center gap-4">
-                    <Trophy className="w-8 h-8 text-yellow-500" />
-                    <div>
-                      <p className="text-xs text-yellow-500 font-bold uppercase tracking-widest">Top Scorer (Overall)</p>
-                      <p className="text-2xl font-black text-white">{String(topOverallScorer.name)} <span className="text-sm text-slate-400 ml-2">({Number(topOverallScorer.score)} Pts)</span></p>
-                    </div>
-                 </div>
-              </div>
-            )}
 
             <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 font-bold text-sm mb-10 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
               <Star className="w-5 h-5 fill-yellow-500 text-yellow-500" /> Edu Quest වෙත සාදරයෙන් පිළිගනිමු!
             </div>
 
             <h1 className="text-4xl md:text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 drop-shadow-lg text-center leading-tight">
-              ඔබේ ශ්‍රේණිය තෝරන්න
+              {nameConfirmed ? 'ඔබේ ශ්‍රේණිය තෝරන්න' : 'Edu Quest අභියෝගය'}
             </h1>
             
-            {/* NAME CONFIRMATION SECTION */}
+            {/* UNIFIED NAME INPUT & HYPE BANNER */}
             {!nameConfirmed ? (
-              <div className="w-full max-w-sm mb-12 animate-in slide-in-from-bottom-4 bg-slate-900/50 p-8 rounded-3xl border border-slate-800 shadow-2xl">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2 mb-4">
-                  <UserCircle className="w-5 h-5" /> ආරම්භ කිරීමට පෙර නම ඇතුළත් කරන්න
-                </label>
-                <input 
-                  type="text" 
-                  placeholder="ඔබේ නම (Your Name)..." 
-                  value={userName}
-                  onChange={(e) => setUserName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleNameConfirm()}
-                  className="w-full p-4 mb-4 bg-slate-950 border-2 border-slate-700 rounded-2xl focus:border-indigo-500 outline-none text-center font-bold text-white text-lg transition-all"
-                />
-                <button 
-                  onClick={handleNameConfirm}
-                  disabled={!userName.trim()}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg"
-                >
-                  ඉදිරියට යන්න (Continue) <ArrowRight className="w-5 h-5" />
-                </button>
+              <div className={`w-full max-w-2xl transition-all duration-500 ease-in-out ${isExiting ? 'scale-90 opacity-0 blur-md translate-y-12' : 'animate-in fade-in zoom-in-95 slide-in-from-bottom-8 mb-12'}`}>
+                <div className="relative bg-slate-900/80 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] border border-slate-700/50 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden text-center group">
+                  
+                  {/* Animated Ambient Backgrounds */}
+                  <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"></div>
+                  <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl animate-pulse delay-700"></div>
+                  <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.02] to-transparent pointer-events-none"></div>
+
+                  {/* Trophy Icon */}
+                  <div className="inline-flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 w-20 h-20 rounded-3xl border border-slate-700 mb-8 shadow-2xl transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 relative z-10">
+                     <Trophy className="w-10 h-10 text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)]" />
+                  </div>
+                  
+                  {/* Hype Text */}
+                  <h2 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 mb-4 tracking-tight relative z-10">
+                    ලංකාවේ දැනුමෙන් ඉහළම තැනට!
+                  </h2>
+                  
+                  <p className="text-slate-400 font-medium text-base leading-relaxed mb-10 max-w-lg mx-auto relative z-10">
+                    අභියෝගය භාරගන්න. නිවැරදිව පිළිතුරු දී <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 font-black px-1 text-lg drop-shadow-sm">"ලංකාවේ ප්‍රථමයන්ගේ"</span> රන් අකුරින් ලියැවෙන ජාතික ලැයිස්තුවට අදම ඔබේ නමත් එකතු කරන්න.
+                  </p>
+
+                  {/* Input Box */}
+                  <div className="relative max-w-md mx-auto z-10">
+                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
+                    <div className="relative bg-slate-950 border border-slate-700 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/20 rounded-3xl p-3 flex flex-col gap-3 transition-all shadow-xl">
+                      <input 
+                        type="text" 
+                        placeholder="ඔබේ නම (Your Name)..." 
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleNameConfirm()}
+                        className="w-full p-4 bg-transparent outline-none text-center font-black text-white text-xl placeholder:text-slate-600 disabled:opacity-50"
+                        disabled={isExiting}
+                      />
+                      <button 
+                        onClick={handleNameConfirm}
+                        disabled={!userName.trim() || isExiting}
+                        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg"
+                      >
+                        අභියෝගය අරඹන්න <ArrowRight className="w-6 h-6" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               /* GRADE SELECTION GRID */
@@ -990,58 +1009,123 @@ export default function App() {
               </div>
             )}
 
-            {/* TOP SCORERS SECTION */}
-            <div className="w-full max-w-6xl mt-16 animate-in fade-in slide-in-from-bottom-8">
-              <h3 className="text-2xl font-black text-center mb-8 text-white flex items-center justify-center gap-3">
-                <Trophy className="text-yellow-500 w-8 h-8" /> මුළු ලකුණු පුවරුව (Cumulative Top)
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                
-                {/* Grade 5 Leaderboard */}
-                <div className="bg-slate-900 border border-amber-500/30 rounded-3xl p-6 shadow-lg">
-                  <h4 className="text-amber-400 font-bold mb-4 flex items-center gap-2 text-md uppercase tracking-widest"><BookOpen className="w-4 h-4"/> 5 වසර</h4>
-                  <div className="space-y-2">
-                    {topGrade5.length === 0 ? <p className="text-slate-600 text-sm py-4 text-center">තවමත් දත්ත නොමැත</p> : topGrade5.map((entry, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/30' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</span>
-                          <span className="font-semibold text-slate-200 text-xs truncate max-w-[80px]">{String(entry.name)}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-amber-500 font-black">{Number(entry.score)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Arts / Media Leaderboard */}
-                <div className="bg-slate-900 border border-pink-500/30 rounded-3xl p-6 shadow-lg">
-                  <h4 className="text-pink-400 font-bold mb-4 flex items-center gap-2 text-md uppercase tracking-widest"><Camera className="w-4 h-4"/> කලා (Media)</h4>
-                  <div className="space-y-2">
-                    {topMedia.length === 0 ? <p className="text-slate-600 text-sm py-4 text-center">තවමත් දත්ත නොමැත</p> : topMedia.map((entry, idx) => (
-                      <div key={idx} className="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/30' : 'bg-slate-800 text-slate-400'}`}>{idx + 1}</span>
-                          <span className="font-semibold text-slate-200 text-xs truncate max-w-[80px]">{String(entry.name)}</span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-pink-500 font-black">{Number(entry.score)}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-              </div>
-              <div className="text-center mt-6">
-                <button onClick={() => { setSelectedStream(null); setLeaderboardTab('normal'); setShowAllLeaderboard(false); setGameState('leaderboard'); }} className="text-slate-400 hover:text-white text-sm font-bold underline underline-offset-4">
-                  සම්පූර්ණ ලැයිස්තුවම බලන්න
-                </button>
-              </div>
+            {/* BUTTON TO OPEN GRAND LEADERBOARD (වෙනම ටැබ් එකකට යොමු කරන බොත්තම) */}
+            <div className="mt-16 animate-in slide-in-from-bottom-6 w-full max-w-md">
+               <button 
+                 onClick={() => setGameState('grand_leaderboard')} 
+                 className="w-full group relative bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 hover:from-yellow-500 hover:via-amber-400 hover:to-yellow-500 px-8 py-6 rounded-3xl font-black text-xl md:text-2xl shadow-[0_0_40px_rgba(250,204,21,0.4)] flex flex-col items-center justify-center gap-2 mx-auto transition-all hover:-translate-y-2 text-white border-2 border-yellow-400/50 overflow-hidden"
+               >
+                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
+                 <Trophy className="w-10 h-10 text-yellow-200 group-hover:scale-125 transition-transform drop-shadow-lg relative z-10" /> 
+                 <span className="relative z-10 drop-shadow-md">ලංකාවේ ප්‍රථමයන් බලාගන්න</span>
+                 <span className="text-xs font-bold text-yellow-200/80 uppercase tracking-widest relative z-10">National Top Scorers</span>
+               </button>
             </div>
+
           </div>
         )}
+
+        {/* GRAND LEADERBOARD SCREEN (NEW TAB) - අලුතින් සාදන ලද ප්‍රථමයන් පෙන්වන තිරය */}
+        {gameState === 'grand_leaderboard' && (() => {
+           // තෝරාගත් විෂයට අදාළ ලකුණු ලැයිස්තුව පමණක් පෙරා ගැනීම
+           const currentStreamTop = leaderboard.filter(e => e.stream === grandLeaderboardTab && e.score > 0).sort((a,b) => b.score - a.score).slice(0, 10);
+           
+           return (
+             <div className="flex flex-col items-center justify-start py-8 animate-in zoom-in duration-500 min-h-[80vh] w-full max-w-5xl mx-auto">
+               
+               <div className="w-full flex justify-between items-center mb-8">
+                 <button onClick={() => setGameState('home')} className="p-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl flex items-center gap-2 text-slate-400 hover:text-white transition-colors shadow-lg"><ArrowLeft className="w-5 h-5" /> ආපසු මෙනුවට</button>
+               </div>
+
+               <div className="text-center mb-10">
+                 <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
+                 <h3 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 drop-shadow-lg mb-4">
+                   ලංකාවේ ප්‍රථමයන්
+                 </h3>
+                 <p className="text-slate-400 font-bold text-lg">විෂයන් අනුව විශිෂ්ටයින් (Top Performers by Subject)</p>
+                 
+                 {/* HIGHLIGHTED MOTIVATIONAL BANNER */}
+                 <div className="mt-8 inline-flex items-center gap-3 bg-emerald-500/10 border-2 border-emerald-500/50 px-6 md:px-8 py-3.5 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.3)] animate-pulse hover:animate-none transition-all hover:bg-emerald-500/20 hover:scale-105 cursor-pointer" onClick={() => setGameState('home')}>
+                   <Sparkles className="w-6 h-6 text-emerald-400" />
+                   <span className="text-emerald-300 font-black text-sm md:text-base tracking-wide drop-shadow-md">
+                     ඔබත් අභියෝගය භාරගත්තා නම්, ඔබේ ස්ථානයත් මෙතැනින් බලාගන්න පුළුවන්!
+                   </span>
+                 </div>
+               </div>
+
+               {/* Subject Tabs (විෂයන් තෝරන බොත්තම්) */}
+               <div className="flex flex-wrap justify-center gap-3 mb-12 bg-slate-900/50 p-3 rounded-3xl border border-slate-800 shadow-xl">
+                  <button onClick={() => setGrandLeaderboardTab('grade5')} className={`px-6 py-3 rounded-2xl text-sm md:text-base font-black transition-all flex items-center gap-2 ${grandLeaderboardTab === 'grade5' ? 'bg-amber-600 text-white shadow-[0_0_20px_rgba(217,119,6,0.4)] scale-105' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BookOpen className="w-5 h-5"/> 5 වසර</button>
+                  <button onClick={() => setGrandLeaderboardTab('science')} className={`px-6 py-3 rounded-2xl text-sm md:text-base font-black transition-all flex items-center gap-2 ${grandLeaderboardTab === 'science' ? 'bg-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)] scale-105' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Atom className="w-5 h-5"/> විද්‍යා (Science)</button>
+                  <button onClick={() => setGrandLeaderboardTab('commerce')} className={`px-6 py-3 rounded-2xl text-sm md:text-base font-black transition-all flex items-center gap-2 ${grandLeaderboardTab === 'commerce' ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] scale-105' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Calculator className="w-5 h-5"/> වාණිජ (Commerce)</button>
+                  <button onClick={() => setGrandLeaderboardTab('media')} className={`px-6 py-3 rounded-2xl text-sm md:text-base font-black transition-all flex items-center gap-2 ${grandLeaderboardTab === 'media' ? 'bg-pink-600 text-white shadow-[0_0_20px_rgba(219,39,119,0.4)] scale-105' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Camera className="w-5 h-5"/> කලා (Media)</button>
+               </div>
+
+               {currentStreamTop.length > 0 ? (
+                 <div className="w-full flex flex-col items-center animate-in slide-in-from-bottom-8">
+                   {/* Podium for Top 3 (පළමු තුන්දෙනාට හිමි වේදිකාව) */}
+                   <div className="flex flex-col md:flex-row justify-center items-end gap-4 md:gap-6 mb-12 w-full px-4">
+                     
+                     {/* 2nd Place (Silver) */}
+                     {currentStreamTop[1] && (
+                       <div className="order-2 md:order-1 flex-1 w-full bg-gradient-to-t from-slate-800 to-slate-900 border-t-4 border-slate-300 rounded-t-3xl rounded-b-xl p-6 flex flex-col items-center text-center shadow-[0_-10px_30px_rgba(148,163,184,0.15)] hover:-translate-y-2 transition-transform">
+                         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-100 to-slate-400 flex items-center justify-center text-slate-900 font-black text-2xl mb-4 shadow-[0_0_15px_rgba(148,163,184,0.5)]">2</div>
+                         <p className="font-black text-slate-200 text-xl truncate w-full mb-2">{String(currentStreamTop[1].name)}</p>
+                         <p className="text-3xl font-black text-slate-300 drop-shadow-md">{currentStreamTop[1].score} <span className="text-sm text-slate-500">pts</span></p>
+                       </div>
+                     )}
+
+                     {/* 1st Place (Gold) */}
+                     {currentStreamTop[0] && (
+                       <div className="order-1 md:order-2 flex-[1.2] w-full bg-gradient-to-t from-yellow-900/60 via-slate-900 to-slate-900 border-t-4 border-x border-yellow-400 rounded-t-[3rem] rounded-b-2xl p-8 flex flex-col items-center text-center shadow-[0_-15px_40px_rgba(250,204,21,0.25)] z-10 hover:-translate-y-2 transition-transform md:-mt-10 relative overflow-hidden">
+                         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-500/20 via-transparent to-transparent pointer-events-none"></div>
+                         <CrownIcon className="w-12 h-12 text-yellow-400 mb-3 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] relative z-10" />
+                         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 flex items-center justify-center text-yellow-950 font-black text-4xl mb-4 shadow-[0_0_25px_rgba(250,204,21,0.6)] relative z-10">1</div>
+                         <p className="font-black text-white text-3xl truncate w-full drop-shadow-lg relative z-10 mb-2">{String(currentStreamTop[0].name)}</p>
+                         <p className="text-5xl font-black text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.5)] relative z-10">{currentStreamTop[0].score} <span className="text-lg text-yellow-600">pts</span></p>
+                       </div>
+                     )}
+
+                     {/* 3rd Place (Bronze) */}
+                     {currentStreamTop[2] && (
+                       <div className="order-3 md:order-3 flex-1 w-full bg-gradient-to-t from-amber-950/80 to-slate-900 border-t-4 border-amber-600 rounded-t-3xl rounded-b-xl p-6 flex flex-col items-center text-center shadow-[0_-10px_30px_rgba(217,119,6,0.15)] hover:-translate-y-2 transition-transform">
+                         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white font-black text-2xl mb-4 shadow-[0_0_15px_rgba(217,119,6,0.5)]">3</div>
+                         <p className="font-black text-slate-200 text-xl truncate w-full mb-2">{String(currentStreamTop[2].name)}</p>
+                         <p className="text-3xl font-black text-amber-500 drop-shadow-md">{currentStreamTop[2].score} <span className="text-sm text-slate-500">pts</span></p>
+                       </div>
+                     )}
+
+                   </div>
+
+                   {/* List for 4th to 10th (අනෙකුත් ස්ථාන 4 සිට 10 දක්වා) */}
+                   {currentStreamTop.length > 3 && (
+                     <div className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl p-4 md:p-8 shadow-2xl space-y-3 relative">
+                       <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 text-slate-400 text-xs font-bold px-6 py-2 rounded-full shadow-lg">Top 10 Players</div>
+                       {currentStreamTop.slice(3, 10).map((entry, idx) => (
+                         <div key={idx} className="flex justify-between items-center bg-slate-950/80 hover:bg-slate-800 transition-colors p-5 rounded-2xl border border-slate-800/50 group">
+                           <div className="flex items-center gap-5">
+                             <span className="w-10 h-10 rounded-xl flex items-center justify-center font-black bg-slate-900 text-slate-400 border border-slate-800 shadow-inner group-hover:text-white transition-colors text-lg">{idx + 4}</span>
+                             <span className="font-bold text-slate-200 text-base md:text-lg tracking-wide">{String(entry.name)}</span>
+                           </div>
+                           <div className="text-right">
+                             <span className="text-2xl font-black text-slate-300">{Number(entry.score)} <span className="text-xs text-slate-500 font-normal">pts</span></span>
+                           </div>
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                 </div>
+               ) : (
+                 <div className="text-center py-20 bg-slate-900/50 border border-slate-800 rounded-3xl w-full max-w-2xl mx-auto shadow-inner">
+                    <Trophy className="w-20 h-20 text-slate-700 mx-auto mb-6 opacity-50" />
+                    <p className="text-slate-400 font-bold text-xl mb-2">තවමත් දත්ත නොමැත.</p>
+                    <p className="text-slate-500">මෙම විෂය සඳහා ප්‍රථමයා වීමට අභියෝගය භාරගන්න!</p>
+                 </div>
+               )}
+
+             </div>
+           );
+        })()}
 
         {/* STREAM SELECT (A/L) */}
         {gameState === 'stream_select' && (
@@ -1497,9 +1581,9 @@ export default function App() {
 }
 
 // A simple crown icon component for the champion badge
-function CrownIcon() {
+function CrownIcon(props) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
     </svg>
   );
