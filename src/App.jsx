@@ -1,1590 +1,662 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
-  Trophy, Star, ArrowRight, RefreshCw, CheckCircle2, 
-  XCircle, BookOpen, Loader2, Award, 
-  ChevronRight, Brain, ArrowLeft, X, LayoutGrid, ListChecks, History, UserCircle,
+  Trophy, Star, ArrowRight, RefreshCw, CircleCheck, 
+  CircleX, BookOpen, Loader2, Award, 
+  ChevronRight, Brain, ArrowLeft, X, LayoutGrid, ListCheck, History, UserCircle,
   ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker, Heart, Flame, Skull, Sparkles, Lock, Unlock, Timer, GraduationCap, Pencil,
-  Camera, Palette
+  Camera, Palette, Cpu, Music
 } from 'lucide-react';
-import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore, collection, addDoc, onSnapshot, doc, setDoc, getDoc
-} from 'firebase/firestore';
-import { 
-  getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken 
+  signInAnonymously 
 } from 'firebase/auth';
 
-// --- Firebase Keys ---
-const myLocalFirebaseConfig = {
-  apiKey: "AIzaSyCRHB0j1sfZ5WMlUHDcuj60GIZI_AELwaU",
-  authDomain: "mylocalfirebaseconfig.firebaseapp.com",
-  projectId: "mylocalfirebaseconfig",
-  storageBucket: "mylocalfirebaseconfig.firebasestorage.app",
-  messagingSenderId: "253657541631",
-  appId: "1:253657541631:web:b9d6c925b5af97ebc195ca"
-};
+// Firebase Service Import
+import { auth } from './firebase';
+import { 
+  subscribeToLeaderboard, 
+  saveUserScore, 
+  subscribeToStats, 
+  updateStatsVote 
+} from './data/database/database';
 
-const firebaseConfig = typeof __firebase_config !== 'undefined' 
-  ? JSON.parse(__firebase_config) 
-  : myLocalFirebaseConfig;
+const appId = typeof globalThis !== 'undefined' && globalThis.__app_id ? globalThis.__app_id : 'commerce-quest-pro-40';
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const appId = typeof __app_id !== 'undefined' ? __app_id : 'commerce-quest-pro-40';
+// Component Imports
+import ALStreamSelect from './components/ALStreamSelect';
+import { playSound } from './components/Helpers';
+import HomeView from './components/HomeView';
+import GrandLeaderboard from './components/GrandLeaderboard';
+import StartView from './components/StartView';
+import PaperSelectionView from './components/PaperSelectionView';
+import QuizView from './components/QuizView';
+import ResultView from './components/ResultView';
+import HistoryView from './components/HistoryView';
+import LeaderboardView from './components/LeaderboardView';
+import Grade6StreamSelect from './components/Grade6StreamSelect';
 
-// --- Sound Effects Generator ---
-const playSound = (type) => {
-  try {
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContext) return;
-    const ctx = new AudioContext();
-    
-    if (type === 'correct') {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(523.25, ctx.currentTime); 
-      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); 
-      osc.frequency.setValueAtTime(783.99, ctx.currentTime + 0.2); 
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.5);
-    } else if (type === 'wrong') {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(150, ctx.currentTime);
-      osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.1, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.3);
-    }
-  } catch (e) {
-    console.log("Audio not supported");
+// Data Imports
+import { 
+  fullCommerceBank, 
+  fullScienceBank, 
+  fullGrade5Bank, 
+  fullMediaBank, 
+  fullChemistryBank, 
+  fullPhysicsBank, 
+  fullAgriBank, 
+  fullGrade6MathsBank, 
+  fullGrade6OrientalMusicBank,
+  fullGrade6WesternMusicBank,
+  fullGrade6ScienceBank
+} from './data/12and13/questions';
+
+// Helper for subject titles
+const getSubjectTitle = (stream) => {
+  if (!stream) return 'COMMERCE වැඩ්ඩෙක්';
+  if (stream === 'grade5') return '5 වසර අභියෝගය';
+  
+  if (String(stream).startsWith('grade6_')) {
+    const g6NameMap = {
+      'grade6_maths': '6 වසර ගණිතය',
+      'grade6_science': '6 වසර විද්‍යාව',
+      'grade6_sinhala': '6 වසර සිංහල',
+      'grade6_english': '6 වසර ඉංග්‍රීසි',
+      'grade6_history': '6 වසර ඉතිහාසය',
+      'grade6_religion': '6 වසර ආගම',
+      'grade6_pts': '6 වසර PTS',
+      'grade6_art': '6 වසර චිත්‍ර',
+      'grade6_oriental_music': '6 වසර පෙරදිග සංගීතය',
+      'grade6_western_music': '6 වසර අපරදිග සංගීතය',
+      'grade6_kandyan_dance': '6 වසර උඩරට නර්තනය',
+      'grade6_lowcountry_dance': '6 වසර පහතරට නර්තනය',
+      'grade6_sabaragamu_dance': '6 වසර සබරගමු නර්තනය',
+      'grade6_drama': '6 වසර නාට්‍ය'
+    };
+    return g6NameMap[stream] || '6 ශ්‍රේණිය';
   }
+
+  const streamTitleMap = {
+    biology: 'ජීව විද්‍යාව',
+    chemistry: 'රසායන විද්‍යාව',
+    physics: 'භෞතික විද්‍යාව',
+    agri: 'කෘෂි විද්‍යාව',
+    combined_maths: 'සංයුක්ත ගණිතය',
+    physics_maths: 'භෞතික විද්‍යාව',
+    chemistry_maths: 'රසායන විද්‍යාව',
+    ict_maths: 'ICT',
+    business_studies: 'ව්‍යාපාර අධ්‍යයනය',
+    accounting: 'ගිණුම්කරණය',
+    economics: 'ආර්ථික විද්‍යාව',
+    ict_commerce: 'ICT',
+    sft: 'SFT',
+    et: 'ET',
+    bst: 'BST',
+    ict_tech: 'ICT',
+    sinhala: 'සිංහල',
+    tamil: 'දෙමළ',
+    english: 'ඉංග්‍රීසි',
+    japanese: 'ජපන්',
+    french: 'ප්‍රංශ',
+    hindi: 'හින්දි',
+    pol_sci: 'දේශපාලන විද්‍යාව',
+    geography_arts: 'භූගෝල විද්‍යාව',
+    history: 'ඉතිහාසය',
+    econ_arts: 'ආර්ථික විද්‍යාව',
+    psychology: 'මනෝ විද්‍යාව',
+    art: 'චිත්‍ර',
+    music: 'සංගීතය',
+    dance: 'නර්තනය',
+    drama: 'නාට්‍ය හා රංග කලාව',
+    logic: 'තර්ක ශාස්ත්‍රය',
+    buddhist_civ: 'බෞද්ධ ශිෂ්ටාචාරය',
+    christian_civ: 'ක්‍රිස්තියානි ශිෂ්ටාචාරය',
+    media: 'මාධ්‍ය අධ්‍යයනය',
+    ict_arts: 'ICT'
+  };
+  if (streamTitleMap[stream]) return streamTitleMap[stream];
+
+  const scienceStreams = ['biology', 'chemistry', 'physics', 'agri'];
+  const mathsStreams = ['combined_maths', 'physics_maths', 'chemistry_maths', 'ict_maths'];
+  if (scienceStreams.includes(stream)) return 'SCIENCE වැඩ්ඩෙක්';
+  if (mathsStreams.includes(stream)) return 'MATHS වැඩ්ඩෙක්';
+
+  const mediaStreams = ['sinhala', 'tamil', 'english', 'japanese', 'french', 'hindi', 'pol_sci', 'geography_arts', 'history', 'econ_arts', 'psychology', 'art', 'music', 'dance', 'drama', 'logic', 'buddhist_civ', 'christian_civ', 'media', 'ict_arts'];
+  if (mediaStreams.includes(stream)) return 'ARTS වැඩ්ඩෙක්';
+
+  const techStreams = ['sft', 'et', 'bst', 'ict_tech'];
+  if (techStreams.includes(stream)) return 'TECH වැඩ්ඩෙක්';
+
+  return 'COMMERCE වැඩ්ඩෙක්';
 };
 
-// ==========================================
-// 1. COMMERCE QUESTION BANK
-// ==========================================
-const commerceQuestionBank = [
-  // --- PAPER 1 ---
-  { paperId: 1, id: 1, subject: "BS", question: "ව්‍යාපාරයක මූලික ආර්ථික පරමාර්ථය කුමක්ද?", options: ["සමාජ සේවය කිරීම", "ලාභ උපරිම කිරීම", "රැකියා සම්පාදනය", "රජයට බදු ගෙවීම"], answer: 1, explanation: "ඕනෑම ලාභ අරමුණු කරගත් ව්‍යාපාරයක මූලික ආර්ථික පරමාර්ථය වන්නේ ලාභ උපරිම කිරීමයි." },
-  { paperId: 1, id: 2, subject: "BS", question: "බාහිර ව්‍යාපාරික පරිසරයට අයත් නොවන්නේ කුමක්ද?", options: ["සැපයුම්කරුවන්", "තරඟකරුවන්", "සේවකයින්", "ආර්ථික තත්ත්වය"], answer: 2, explanation: "සේවකයින් යනු ව්‍යාපාරයේ අභ්‍යන්තර පරිසරයට අයත් පාර්ශවයකි." },
-  { paperId: 1, id: 3, subject: "BS", question: "සීමිත වගකීමක් සහිත ව්‍යාපාර සංවිධාන වර්ගය කුමක්ද?", options: ["තනි පුද්ගල ව්‍යාපාර", "හවුල් ව්‍යාපාර", "සීමිත පොදු සමාගම්", "අවිධිමත් ව්‍යාපාර"], answer: 2, explanation: "සමාගමක කොටස්කරුවන්ගේ වගකීම ඔවුන් යෙදවූ ප්‍රාග්ධනයට පමණක් සීමා වේ." },
-  { paperId: 1, id: 4, subject: "BS", question: "කළමනාකරණයේ මූලික කාර්යයන් නිවැරදිව පෙළගස්වා ඇති පිළිතුර තෝරන්න.", options: ["සැලසුම්කරණය, සංවිධානය, මෙහෙයවීම, පාලනය", "පාලනය, මෙහෙයවීම, සංවිධානය, සැලසුම්කරණය", "සැලසුම්කරණය, පාලනය, සංවිධානය, මෙහෙයවීම", "සංවිධානය, සැලසුම්කරණය, පාලනය, මෙහෙයවීම"], answer: 0, explanation: "කළමනාකරණ ක්‍රියාවලිය සෑම විටම ආරම්භ වන්නේ සැලසුම්කරණයෙන් වන අතර අවසන් වන්නේ පාලනයෙනි." },
-  { paperId: 1, id: 5, subject: "BS", question: "ශ්‍රී ලංකා මහ බැංකුවේ ප්‍රධාන කාර්යයක් නොවන්නේ කුමක්ද?", options: ["මුදල් නිකුත් කිරීම", "වාණිජ බැංකු නියාමනය කිරීම", "මහජනතාවට ණය ලබා දීම", "රජයේ බැංකුවකරු ලෙස ක්‍රියා කිරීම"], answer: 2, explanation: "මහ බැංකුව සෘජුවම සාමාන්‍ය මහජනතාව සමග ගනුදෙනු නොකරයි." },
-  { paperId: 1, id: 6, subject: "BS", question: "අලෙවිකරණ මිශ්‍රණයේ (Marketing Mix) '4P' වලට අයත් නොවන්නේ?", options: ["Product (නිෂ්පාදිතය)", "Price (මිල)", "People (මිනිසුන්)", "Promotion (ප්‍රවර්ධනය)"], answer: 2, explanation: "මූලික 4P වලට අයත් වන්නේ Product, Price, Place සහ Promotion වේ." },
-  { paperId: 1, id: 7, subject: "BS", question: "ව්‍යවසායකයෙකුගේ මූලික ලක්ෂණයක් වන්නේ?", options: ["අවදානම් මඟ හැරීම", "නවෝත්පාදනය", "ප්‍රාග්ධනය නොමැතිකම", "අන් අයගේ උපදෙස් මත පමණක් ක්‍රියා කිරීම"], answer: 1, explanation: "අවදානම් දරමින් නව දෑ සොයා යාම (නවෝත්පාදනය) ව්‍යවසායකත්වයේ මූලික ලක්ෂණකි." },
-  { paperId: 1, id: 8, subject: "BS", question: "රක්ෂණයේ 'උපරිම යහපත් විශ්වාසය' යන මූලධර්මයෙන් අදහස් වන්නේ කුමක්ද?", options: ["රක්ෂණකරුට පමණක් තොරතුරු හෙළි කිරීම", "සියලුම වැදගත් තොරතුරු දෙපාර්ශවයම හෙළි කිරීම", "රක්ෂිතයාට වන්දි නොගෙවීම", "වාරික අඩු කිරීම"], answer: 1, explanation: "රක්ෂණ ගිවිසුමකට එළඹීමේදී දෙපාර්ශවයම තමන් දන්නා සියලු සත්‍ය තොරතුරු හෙළි කළ යුතුය." },
-  { paperId: 1, id: 9, subject: "BS", question: "ව්‍යාපාරයක 'දැක්ම' (Vision) යන්නෙන් අදහස් වන්නේ?", options: ["වර්තමාන තත්ත්වය", "අනාගතයේ ළඟා වීමට අපේක්ෂිත තත්ත්වය", "දෛනික කාර්යයන්", "ලාභය"], answer: 1, explanation: "දැක්ම යනු ව්‍යාපාරය අනාගතයේදී කෙසේ විය යුතුද යන්න පිළිබඳ සිහිනයයි." },
-  { paperId: 1, id: 10, subject: "BS", question: "පාරිභෝගික ආරක්ෂණ අධිකාරියේ කාර්යයක් වන්නේ?", options: ["ව්‍යාපාර සඳහා ණය දීම", "පාරිභෝගික අයිතීන් සුරැකීම සහ අසාධාරණ වෙළඳාම් වැළැක්වීම", "භාණ්ඩ නිෂ්පාදනය කිරීම", "සේවක වැටුප් තීරණය කිරීම"], answer: 1, explanation: "වෙළඳපොලේ පාරිභෝගිකයා ආරක්ෂා කිරීම ඔවුන්ගේ ප්‍රධාන අරමුණයි." },
-  { paperId: 1, id: 11, subject: "ACC", question: "මූලික ගිණුම්කරණ සමීකරණය නිවැරදිව දක්වා ඇත්තේ?", options: ["වත්කම් = වගකීම් - හිමිකම්", "හිමිකම් = වත්කම් + වගකීම්", "වත්කම් = හිමිකම් + වගකීම්", "වගකීම් = වත්කම් + හිමිකම්"], answer: 2, explanation: "වත්කම් (A) සමාන වන්නේ හිමිකම් (E) සහ වගකීම් (L) වල එකතුවටයි (A = E + L)." },
-  { paperId: 1, id: 12, subject: "ACC", question: "ද්විත්ව සටහන් න්‍යායට අනුව වත්කමක් වැඩි වීමක් සටහන් කරන්නේ?", options: ["හර පැත්තේ", "බැර පැත්තේ", "ශේෂ පත්‍රයේ පමණි", "ලාභ අලාභ ගිණුමේ"], answer: 0, explanation: "වත්කම් සහ වියදම් වැඩි වීම සෑම විටම අදාළ ගිණුමේ හර (Debit) කරනු ලැබේ." },
-  { paperId: 1, id: 13, subject: "ACC", question: "විකුණුම් ජර්නලයේ සටහන් කරනු ලබන්නේ?", options: ["සියලුම විකුණුම්", "මුදල් විකුණුම් පමණි", "ණයට කළ භාණ්ඩ විකුණුම් පමණි", "ස්ථාවර වත්කම් විකුණුම්"], answer: 2, explanation: "විකුණුම් ජර්නලයේ සටහන් කරන්නේ ව්‍යාපාරයේ වෙළඳ භාණ්ඩ ණයට විකිණීම පමණි." },
-  { paperId: 1, id: 14, subject: "ACC", question: "ක්ෂය කිරීම (Depreciation) යනු?", options: ["වත්කමක වටිනාකම වෙළඳපොලේ අඩු වීම", "ස්ථාවර වත්කමක පිරිවැය එහි ඵලදායී ආයු කාලය පුරා ක්‍රමානුකූලව කපා හැරීම", "වත්කමක් විකිණීම", "අලුත්වැඩියා වියදම්"], answer: 1, explanation: "ක්ෂය කිරීම යනු භාවිතය, කාලය ගතවීම වැනි හේතු නිසා ස්ථාවර වත්කමක පිරිවැය කපා හැරීමේ ගිණුම්කරණ ක්‍රියාවලියයි." },
-  { paperId: 1, id: 15, subject: "ACC", question: "පහත දැක්වෙන ඒවායින් ජංගම වගකීමක් (Current Liability) වන්නේ?", options: ["බැංකු ණය (අවු. 5)", "ණයගැතියන්", "ණයහිමියන්", "මෝටර් රථ"], answer: 2, explanation: "ණයහිමියන් යනු වසරක් ඇතුළත ගෙවා නිම කළ යුතු බැඳීමක් බැවින් එය ජංගම වගකීමකි." },
-  { paperId: 1, id: 16, subject: "ACC", question: "බැංකු සැසඳුම් ප්‍රකාශයක් (Bank Reconciliation Statement) පිළියෙළ කරන්නේ ඇයි?", options: ["ලාභය සෙවීමට", "මුදල් පොතේ බැංකු තීරුවේ ශේෂය සහ බැංකු ප්‍රකාශයේ ශේෂය අතර වෙනස්කම් පැහැදිලි කිරීමට", "බදු ගෙවීමට", "සේවක වැටුප් ගණනය කිරීමට"], answer: 1, explanation: "සැසඳුම් ප්‍රකාශය මගින් මුදල් පොත හා බැංකු ප්‍රකාශය අතර පවතින වෙනස්කම් ගළපා පෙන්වයි." },
-  { paperId: 1, id: 17, subject: "ACC", question: "අත්තිකාරම් ක්‍රමය (Imprest System) බහුලව භාවිතා වන්නේ කුමන පොතක් සඳහාද?", options: ["සුළු මුදල් පොත", "විකුණුම් ජර්නලය", "මිලදී ගැනුම් ජර්නලය", "පොදු ජර්නලය"], answer: 0, explanation: "සුළු වියදම් පාලනය කිරීම සඳහා සුළු මුදල් පොත පවත්වාගෙන යන්නේ අත්තිකාරම් ක්‍රමය යටතේය." },
-  { paperId: 1, id: 18, subject: "ACC", question: "'ප්‍රාග්ධන වියදමක්' ලෙස සැලකිය හැක්කේ?", options: ["යන්ත්‍රයක් සඳහා යෙදූ ලිහිසි තෙල් මිල", "නව යන්ත්‍රයක් මිලදී ගැනීමේ පිරිවැය", "සේවක වැටුප්", "විදුලි බිල"], answer: 1, explanation: "ස්ථාවර වත්කම් අත්පත් කර ගැනීමට හෝ එහි ධාරිතාවය වැඩි කිරීමට දරන වියදම් ප්‍රාග්ධන වියදම් වේ." },
-  { paperId: 1, id: 19, subject: "ACC", question: "හිඟකම් (Arrears) හෙවත් ගෙවිය යුතු වියදම් වර්ෂ අවසානයේදී සටහන් කරන්නේ?", options: ["වත්කමක් ලෙස", "වගකීමක් ලෙස", "ආදායමක් ලෙස", "ප්‍රාග්ධනයක් ලෙස"], answer: 1, explanation: "ගෙවිය යුතු නමුත් තවමත් ගෙවා නොමැති වියදම් ව්‍යාපාරයට ජංගම වගකීමකි." },
-  { paperId: 1, id: 20, subject: "ACC", question: "අමුද්‍රව්‍ය, වැඩ කොටස් සහ නිමි භාණ්ඩ එකතුව හඳුන්වන්නේ කුමක් ලෙසද?", options: ["ස්ථාවර වත්කම්", "තොගය (Inventory)", "ප්‍රාග්ධනය", "විකුණුම්"], answer: 1, explanation: "නිෂ්පාදන ආයතනයක පවතින මෙම කොටස් තුනේම එකතුව ව්‍යාපාරයේ තොගය ලෙස හැඳින්වේ." },
-  { paperId: 1, id: 21, subject: "ECON", question: "ආර්ථික විද්‍යාවේදී 'ආවස්ථික පිරිවැය' (Opportunity Cost) යනු?", options: ["නිෂ්පාදනය සඳහා යන මුළු මුදල", "විකල්පයක් තෝරා ගැනීමේදී අත්හැරීමට සිදුවන ඊළඟ හොඳම විකල්පයේ වටිනාකම", "බදු මුදල", "ලාභය අහිමි වීම"], answer: 1, explanation: "සීමිත සම්පත් නිසා එක් දෙයක් තෝරාගන්නා විට අහිමි වන අනෙක් හොඳම විකල්පය ආවස්ථික පිරිවැයයි." },
-  { paperId: 1, id: 22, subject: "ECON", question: "සාර්ව ආර්ථික විද්‍යාවේ (Macroeconomics) අධ්‍යයන විෂයයක් වන්නේ?", options: ["තනි පාරිභෝගිකයෙකුගේ හැසිරීම", "එක් ආයතනයක මිල තීරණය කිරීම", "රටේ සමස්ත උද්ධමනය සහ සේවා වියුක්තිය", "නිශ්චිත භාණ්ඩයක ඉල්ලුම"], answer: 2, explanation: "සාර්ව ආර්ථික විද්‍යාව මගින් ආර්ථිකයක් සමස්තයක් ලෙස (උද්ධමනය, ජාතික ආදායම) අධ්‍යයනය කරයි." },
-  { paperId: 1, id: 23, subject: "ECON", question: "ඉල්ලුම් නීතියට (Law of Demand) අනුව, භාණ්ඩයක මිල ඉහළ යන විට?", options: ["ඉල්ලුම් ප්‍රමාණය ඉහළ යයි", "ඉල්ලුම් ප්‍රමාණය පහළ යයි", "සැපයුම පහළ යයි", "මිල තවදුරටත් ඉහළ යයි"], answer: 1, explanation: "අනෙකුත් සාධක ස්ථාවරව තිබියදී භාණ්ඩයක මිල හා ඉල්ලුම් ප්‍රමාණය අතර ඇත්තේ ප්‍රතිලෝම සම්බන්ධයකි." },
-  { paperId: 1, id: 24, subject: "ECON", question: "සැපයුම් නම්‍යතාවය (Elasticity of Supply) මගින් මනිනු ලබන්නේ කුමක්ද?", options: ["මිල වෙනස් වීමේදී ඉල්ලුම වෙනස් වන අනුපාතය", "මිල වෙනස් වීමේදී සැපයුම් ප්‍රමාණය වෙනස් වන සංවේදීතාවය", "පාරිභෝගික ආදායම වෙනස් වීම", "රජයේ බදු අනුපාතය"], answer: 1, explanation: "භාණ්ඩයක මිලෙහි ප්‍රතිශත වෙනසකට ප්‍රතිචාර ලෙස එහි සැපයුම් ප්‍රමාණයේ සිදුවන ප්‍රතිශත වෙනස මෙයින් මනිනු ලැබේ." },
-  { paperId: 1, id: 25, subject: "ECON", question: "පරිපූර්ණ තරඟකාරී වෙළඳපොලක (Perfect Competition) ලක්ෂණයක් නොවන්නේ?", options: ["විශාල ගැනුම්කරුවන් හා විකුණුම්කරුවන් සිටීම", "සමජාතීය භාණ්ඩ නිපදවීම", "තනි ආයතනයකට මිල තීරණය කළ හැකි වීම", "වෙළඳපොලට ඇතුළු වීමට හා පිටවීමට නිදහස තිබීම"], answer: 2, explanation: "පරිපූර්ණ තරඟයේදී තනි විකුණුම්කරුවෙකුට භාණ්ඩයේ මිල තීරණය කළ නොහැක; ඔවුන් 'මිල බාරගන්නන්' වේ." },
-  { paperId: 1, id: 26, subject: "ECON", question: "මූලික ආර්ථික ප්‍රශ්න තුනට අයත් නොවන්නේ?", options: ["කුමක් කොපමණ නිපදවනවාද?", "කෙසේ නිපදවනවාද?", "කා සඳහා නිපදවනවාද?", "කොපමණ ලාභයක් ලබනවාද?"], answer: 3, explanation: "සෑම ආර්ථික පද්ධතියක්ම විසඳිය යුතු මූලික ප්‍රශ්න වන්නේ කුමක්, කෙසේ සහ කා සඳහා නිපදවනවාද යන්නයි." },
-  { paperId: 1, id: 27, subject: "ECON", question: "උද්ධමනය (Inflation) යනු?", options: ["භාණ්ඩවල මිල ගණන් අඛණ්ඩව ඉහළ යාම", "මුදලේ අගය ඉහළ යාම", "විරැකියාව අඩු වීම", "රජයේ වියදම් අඩු වීම"], answer: 0, explanation: "පොදු මිල මට්ටම අඛණ්ඩව සහ සැලකිය යුතු ලෙස ඉහළ යාම උද්ධමනය ලෙස හැඳින්වේ." },
-  { paperId: 1, id: 28, subject: "ECON", question: "නිදහස් වෙළඳපොල ආර්ථිකයක සම්පත් බෙදා හැරීම තීරණය කරන්නේ?", options: ["රජය විසින් පමණි", "මහ බැංකුව විසින්", "මිල යන්ත්‍රණය (Price Mechanism) මගින්", "කම්කරු සමිති මගින්"], answer: 2, explanation: "ධනවාදී හෝ නිදහස් ආර්ථිකයක ඉල්ලුම හා සැපයුම මත පදනම් වූ මිල යන්ත්‍රණය මගින් සම්පත් බෙදා හැරේ." },
-  { paperId: 1, id: 29, subject: "ECON", question: "ප්‍රාග්ධන භාණ්ඩ (Capital Goods) යනු මොනවාද?", options: ["පාරිභෝගිකයා සෘජුව පරිභෝජනය කරන භාණ්ඩ", "වෙනත් භාණ්ඩ නිෂ්පාදනය කිරීම සඳහා යොදාගන්නා යන්ත්‍ර සූත්‍ර ආදිය", "ස්වභාවික සම්පත් පමණි", "සේවා පමණි"], answer: 1, explanation: "ප්‍රාග්ධන භාණ්ඩ යනු පාරිභෝගික භාණ්ඩ නිපදවීමට යොදා ගන්නා මිනිසා විසින් නිපදවූ වත්කම්ය." },
-  { paperId: 1, id: 30, subject: "ECON", question: "සාමාන්‍ය භාණ්ඩයක් සඳහා පාරිභෝගිකයාගේ ආදායම ඉහළ යන විට ඉල්ලුම් වක්‍රයට කුමක් සිදුවේද?", options: ["වමට විතැන් වේ", "දකුණට විතැන් වේ", "වෙනස් නොවේ", "සිරස් අතට ගමන් කරයි"], answer: 1, explanation: "ආදායම වැඩි වන විට සාමාන්‍ය භාණ්ඩ සඳහා ඉල්ලුම වැඩි වන බැවින් ඉල්ලුම් වක්‍රය දකුණට විතැන් වේ." },
-  { paperId: 1, id: 31, subject: "BS", question: "විවෘත ආර්ථිකයක ප්‍රධාන ලක්ෂණයක් වන්නේ?", options: ["ආනයන අපනයන සම්පූර්ණයෙන් තහනම් කිරීම", "ජාත්‍යන්තර වෙළඳාම සඳහා විවෘත වීම", "රජය විසින් පමණක් ව්‍යාපාර කිරීම", "විදේශ ආයෝජන ප්‍රතික්ෂේප කිරීම"], answer: 1, explanation: "විවෘත ආර්ථිකයක් වෙනත් රටවල් සමග වෙළඳ හා මූල්‍ය ගනුදෙනු නිදහසේ සිදු කරයි." },
-  { paperId: 1, id: 32, subject: "ACC", question: "අස්පෘශ්‍ය වත්කමකට (Intangible Asset) උදාහරණයක් තෝරන්න.", options: ["යන්ත්‍ර සූත්‍ර", "මෝටර් රථ", "කීර්තිනාමය (Goodwill)", "වෙළඳ තොගය"], answer: 2, explanation: "භෞතික පැවැත්මක් නොමැති වුවත් ආර්ථික වටිනාකමක් ඇති වත්කම් අස්පෘශ්‍ය වත්කම් වේ." },
-  { paperId: 1, id: 33, subject: "ECON", question: "සෘජු බද්දකට උදාහරණයක් වන්නේ?", options: ["එකතු කළ අගය මත බද්ද (VAT)", "රේගු බදු", "ආදායම් බද්ද", "නිෂ්පාදන බදු"], answer: 2, explanation: "බදු බර වෙනත් අයෙකුට මාරු කළ නොහැකි, බද්ද පනවන පුද්ගලයාම ගෙවන බදු සෘජු බදු වේ (උදා: ආදායම් බද්ද)." },
-  { paperId: 1, id: 34, subject: "BS", question: "බහුජාතික සමාගමක් (MNC) යනු?", options: ["එක් රටක පමණක් ක්‍රියාත්මක වන සමාගමක්", "රටවල් කිහිපයක මෙහෙයුම් කටයුතු සිදු කරන සමාගමක්", "රජයට අයත් සමාගමක්", "ලාභ අරමුණු නොකරන සංවිධානයක්"], answer: 1, explanation: "මව් රටට අමතරව වෙනත් රටවල් වලද තම ශාඛා හෝ නිෂ්පාදන කටයුතු මෙහෙයවන සමාගම් බහුජාතික සමාගම් වේ." },
-  { paperId: 1, id: 35, subject: "ACC", question: "හවුල් ව්‍යාපාරයක ලාභ අලාභ බෙදා ගන්නේ කෙසේද?", options: ["සමානව පමණි", "හවුල්කරුවන්ගේ වයස අනුව", "හවුල් ගිවිසුමේ සඳහන් අනුපාතයට", "රජයේ නීතිය අනුව පමණි"], answer: 2, explanation: "ලාභ අලාභ බෙදාගැනීම සඳහා හවුල් ගිවිසුමේ අනුපාතයක් සඳහන් කර ඇත්නම් ඒ අනුව සිදු කෙරේ." },
-  { paperId: 1, id: 36, subject: "ECON", question: "ඒකාධිකාරී (Monopoly) වෙළඳපොලක ලක්ෂණයක් වන්නේ?", options: ["විකුණුම්කරුවන් විශාල සංඛ්‍යාවක් සිටීම", "එකම භාණ්ඩය නිෂ්පාදනය කරන තනි සැපයුම්කරුවෙකු සිටීම", "මිල තීරණය කිරීම පාරිභෝගිකයා සතු වීම", "පහසුවෙන් වෙළඳපොලට ඇතුළු විය හැකි වීම"], answer: 1, explanation: "ඒකාධිකාරයකදී සම්පූර්ණ වෙළඳපොල සැපයුම එක් ආයතනයක් විසින් පමණක් පාලනය කරයි." },
-  { paperId: 1, id: 37, subject: "BS", question: "ප්‍රතිරූපය (Corporate Image) නංවා ගැනීමට සමාගමක් සිදුකරන කාර්යයන් අයත් වන්නේ?", options: ["මහජන සම්බන්ධතාවය (Public Relations)", "සෘජු අලෙවිකරණය", "පෞද්ගලික විකිණුම්", "මිල අඩු කිරීම"], answer: 0, explanation: "ව්‍යාපාරය සහ එහි මහජනතාව අතර යහපත් සබඳතාවක් ගොඩනැගීම PR හෙවත් මහජන සම්බන්ධතාවයයි." },
-  { paperId: 1, id: 38, subject: "ACC", question: "වැරදි නිවැරදි කිරීමේදී සස්පෙන්ස් ගිණුමක් (Suspense Account) භාවිතා කරන්නේ කවර අවස්ථාවකද?", options: ["ලාභය අඩු වූ විට", "පරීක්ෂණ ශේෂය (Trial Balance) එකඟ නොවන විට", "බැංකු ශේෂය අඩුවූ විට", "නව වත්කමක් ගත් විට"], answer: 1, explanation: "පරීක්ෂණ ශේෂයේ හර සහ බැර එකතුව සමාන නොවන විට ඒ වෙනස තාවකාලිකව තබන්නේ සස්පෙන්ස් ගිණුමේය." },
-  { paperId: 1, id: 39, subject: "ECON", question: "ගෙවුම් ශේෂය (Balance of Payments) මගින් පෙන්වන්නේ?", options: ["රජයේ ආදායම් හා වියදම්", "රටක් හා සෙසු ලෝකය අතර සියලුම ආර්ථික ගනුදෙනු වල සාරාංශය", "පුද්ගලික අංශයේ ලාභය", "බැංකු පද්ධතියේ ණය"], answer: 1, explanation: "නිශ්චිත කාලයක් තුළ රටක පදිංචිකරුවන් හා සෙසු ලෝකය අතර සිදුවන මූල්‍ය ගනුදෙනු මෙයින් දැක්වේ." },
-  { paperId: 1, id: 40, subject: "BS", question: "ව්‍යාපාරික ආචාරධර්ම (Business Ethics) යනු?", options: ["ලාභය වැඩි කරගැනීමේ උපක්‍රම", "ව්‍යාපාරික ලෝකයේදී හරි සහ වැරදි දේ පිළිබඳ පිළිගත් සදාචාරාත්මක ප්‍රතිපත්ති", "රජයේ නීති මගහැරීම", "තරඟකරුවන් විනාශ කිරීම"], answer: 1, explanation: "නීතියට අමතරව ව්‍යාපාරයක් විසින් සමාජය කෙරෙහි ඉටුකළ යුතු සදාචාරාත්මක වගකීම් සහ ප්‍රතිපත්ති මෙයින් අදහස් වේ." },
+// Helper to shuffle array
+const shuffleArray = (array) => {
+  if (!array || !Array.isArray(array)) return [];
+  const newArr = [...array];
+  for (let i = newArr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+  }
+  return newArr;
+};
 
-  // --- PAPER 2 ---
-  { paperId: 2, id: 41, subject: "BS", question: "ව්‍යාපාරික පරිසරයේ 'දේශපාලන සාධකයක්' වන්නේ?", options: ["රජයේ බදු ප්‍රතිපත්තිය", "නව තාක්ෂණය", "සංස්කෘතිය", "පාරිභෝගික රුචිකත්වය"], answer: 0, explanation: "රජයේ තීරණ සහ බදු ප්‍රතිපත්ති දේශපාලනික සාධක ගණයට වැටේ." },
-  { paperId: 2, id: 42, subject: "ACC", question: "වෙළඳ භාණ්ඩ ණයට මිලදී ගැනීමේදී මූලික ලේඛනය (Source Document) කුමක්ද?", options: ["මුදල් වවුචරය", "ඉන්වොයිසිය (Invoice)", "රිසිට්පත", "බැංකු ප්‍රකාශය"], answer: 1, explanation: "ඕනෑම භාණ්ඩයක් ණයට මිලදී ගැනීමේදී හෝ විකිණීමේදී අදාළ මූලික ලේඛනය ඉන්වොයිසියයි." },
-  { paperId: 2, id: 43, subject: "BS", question: "විද්‍යාත්මක කළමනාකරණයේ පියා ලෙස සැලකෙන්නේ කවුද?", options: ["F.W. ටේලර්", "හෙන්රි ෆයෝල්", "එල්ටන් මේයෝ", "මැක්ස් වෙබර්"], answer: 0, explanation: "විද්‍යාත්මක කළමනාකරණ මූලධර්ම ප්‍රථමයෙන් ඉදිරිපත් කළේ F.W. ටේලර් (Frederick Winslow Taylor) විසිනි." },
-  { paperId: 2, id: 44, subject: "BS", question: "SWOT විශ්ලේෂණයේ 'අභ්‍යන්තර සාධක' වන්නේ පහත කවරක්ද?", options: ["අවස්ථා සහ තර්ජන", "ශක්තීන් සහ දුර්වලතා", "දේශපාලන සාධක", "තරඟකරුවන්ගේ ක්‍රියාකාරකම්"], answer: 1, explanation: "SWOT හි Strengths (ශක්තීන්) සහ Weaknesses (දුර්වලතා) ව්‍යාපාරයට පාලනය කළ හැකි අභ්‍යන්තර සාධක වේ." },
-  { paperId: 2, id: 45, subject: "BS", question: "රක්ෂණයේ 'හානිපූරණය' (Indemnity) මූලධර්මය අදාළ නොවන රක්ෂණ වර්ගය කුමක්ද?", options: ["ගිනි රක්ෂණය", "වාහන රක්ෂණය", "ජීවිත රක්ෂණය", "සොරකම් රක්ෂණය"], answer: 2, explanation: "මිනිස් ජීවිතයක වටිනාකම මුදලින් මැනිය නොහැකි බැවින් ජීවිත රක්ෂණයට හානිපූරණ මූලධර්මය අදාළ නොවේ." },
-  { paperId: 2, id: 46, subject: "BS", question: "භාණ්ඩයක ජීවන චක්‍රයේ (Product Life Cycle) විකුණුම් උපරිම වන අවධිය කුමක්ද?", options: ["හඳුන්වාදීමේ අවධිය", "වර්ධන අවධිය", "පරිණත අවධිය", "පිරිහීමේ අවධිය"], answer: 2, explanation: "වෙළඳපොල උපරිමයෙන් ග්‍රහණය කරගන්නා පරිණත අවධියේදී (Maturity Stage) විකුණුම් හා ලාභ උපරිම වේ." },
-  { paperId: 2, id: 47, subject: "BS", question: "ශ්‍රී ලංකා ප්‍රමිති ආයතනයේ (SLSI) ප්‍රධාන කාර්යයක් වන්නේ කුමක්ද?", options: ["ව්‍යාපාර සඳහා ණය ලබා දීම", "ප්‍රමිතිකරණය හා තත්ත්ව පාලනය", "බදු එකතු කිරීම", "අපනයන ප්‍රවර්ධනය"], answer: 1, explanation: "භාණ්ඩ හා සේවා සඳහා ජාතික ප්‍රමිති සකස් කිරීම හා සහතික නිකුත් කිරීම එහි ප්‍රධාන කාර්යයයි." },
-  { paperId: 2, id: 48, subject: "BS", question: "වෙළඳනාමයක් (Brand) නෛතිකව ලියාපදිංචි කළ පසු එය හඳුන්වන්නේ කුමක් ලෙසද?", options: ["පේටන්ට් බලපත්‍රය", "වෙළඳ ලකුණ (Trademark)", "ප්‍රකාශන අයිතිය", "බලපත්‍රය"], answer: 1, explanation: "වෙළඳනාමයක් ලියාපදිංචි කිරීමෙන් පසු ඊට නෛතික ආරක්ෂාව ලැබෙන අතර එය වෙළඳ ලකුණක් ලෙස හැඳින්වේ." },
-  { paperId: 2, id: 49, subject: "BS", question: "මානව සම්පත් කළමනාකරණයේ පළමු කාර්යය කුමක්ද?", options: ["පුහුණුව", "මානව සම්පත් සැලසුම්කරණය", "බඳවා ගැනීම", "කාර්යසාධන ඇගයීම"], answer: 1, explanation: "සංවිධානයට අනාගතයේ අවශ්‍ය වන සේවකයින් සංඛ්‍යාව හා වර්ගය තීරණය කරන සැලසුම්කරණය පළමු පියවරයි." },
-  { paperId: 2, id: 50, subject: "BS", question: "තනි පුද්ගල ව්‍යාපාරයක ප්‍රධාන අවාසියක් වන්නේ කුමක්ද?", options: ["ලාභය තනිවම භුක්ති විඳීම", "අසීමිත වගකීමක් තිබීම", "තීරණ ගැනීමේ නිදහස", "ආරම්භ කිරීමේ පහසුව"], answer: 1, explanation: "ව්‍යාපාරයේ ණය ගෙවීමට ව්‍යාපාරිකයාගේ පෞද්ගලික දේපළද කැප කිරීමට සිදුවීම අසීමිත වගකීමයි." },
-  { paperId: 2, id: 51, subject: "BS", question: "භාණ්ඩයක් බෙදාහැරීමේ මාර්ගයක (Distribution Channel) අතරමැදියෙකු නොවන්නේ කවුද?", options: ["තොග වෙළෙන්දා", "සිල්ලර වෙළෙන්දා", "නිෂ්පාදකයා", "නියෝජිතයා"], answer: 2, explanation: "නිෂ්පාදකයා යනු භාණ්ඩය නිපදවන්නා වන අතර, අතරමැදියන් යනු නිෂ්පාදකයා සහ පාරිභෝගිකයා අතර සිටින්නන්ය." },
-  { paperId: 2, id: 52, subject: "BS", question: "විද්‍යුත් වාණිජ්‍යයේ (E-commerce) B2C යන්නෙන් අදහස් වන්නේ කුමක්ද?", options: ["ව්‍යාපාරිකයාගෙන් ව්‍යාපාරිකයාට", "ව්‍යාපාරිකයාගෙන් පාරිභෝගිකයාට", "පාරිභෝගිකයාගෙන් පාරිභෝගිකයාට", "රජයෙන් පාරිභෝගිකයාට"], answer: 1, explanation: "B2C (Business-to-Consumer) යනු ව්‍යාපාරයක් විසින් සෘජුවම අවසන් පාරිභෝගිකයාට භාණ්ඩ විකිණීමයි (උදා: Amazon)." },
-  { paperId: 2, id: 53, subject: "BS", question: "මැස්ලෝගේ අවශ්‍යතා ධූරාවලියේ පහළින්ම ඇති මූලික අවශ්‍යතාව කුමක්ද?", options: ["සමාජ අවශ්‍යතා", "ආරක්ෂිත අවශ්‍යතා", "කායික අවශ්‍යතා", "ආත්ම යථාර්ථකරණ අවශ්‍යතා"], answer: 2, explanation: "ආහාර, ජලය, නින්ද වැනි මිනිසාට ජීවත් වීමට අත්‍යවශ්‍ය මූලිකම දේවල් කායික අවශ්‍යතා වේ." },
-  { paperId: 2, id: 54, subject: "BS", question: "සේවකයින් දිරිගැන්වීම සඳහා මූල්‍යමය නොවන (Non-financial) දිරිගැන්වීමක් වන්නේ?", options: ["ප්‍රසාද දීමනා", "සේවා ඇගයීම හා ප්‍රශංසා කිරීම", "කොමිස් මුදල්", "ලාභාංශ"], answer: 1, explanation: "මුදල් වලින් තොරව සේවකයාගේ මානසික තෘප්තිය ඉහළ නංවන දේවල් මූල්‍යමය නොවන දිරිගැන්වීම් වේ." },
-  { paperId: 2, id: 55, subject: "ACC", question: "පොත් තැබීමේ ප්‍රධාන අරමුණ කුමක්ද?", options: ["ලාභය සෙවීම", "මූල්‍ය ගනුදෙනු ක්‍රමානුකූලව වාර්තා කිරීම", "බදු ගෙවීම", "අනාගතය සැලසුම් කිරීම"], answer: 1, explanation: "ගිණුම්කරණ ක්‍රියාවලිය සඳහා අවශ්‍ය මූලික දත්ත වන මූල්‍ය ගනුදෙනු නිවැරදිව සටහන් කර තැබීම පොත් තැබීමයි." },
-  { paperId: 2, id: 56, subject: "ACC", question: "ව්‍යාපාරයක බැංකු ජංගම ගිණුමේ ඇති මුදල් අයිති වන්නේ කිනම් ගිණුම් වර්ගයටද?", options: ["වගකීම් ගිණුම්", "වත්කම් ගිණුම්", "හිමිකම් ගිණුම්", "වියදම් ගිණුම්"], answer: 1, explanation: "ව්‍යාපාරයට අයිති බැංකු ශේෂය යනු ජංගම වත්කමකි." },
-  { paperId: 2, id: 57, subject: "ACC", question: "ආදායම් ප්‍රකාශයක් (Income Statement) මගින් මූලිකව පෙන්වන්නේ කුමක්ද?", options: ["ව්‍යාපාරයේ වත්කම්", "නිශ්චිත කාල පරිච්ඡේදයක මූල්‍ය කාර්යසාධනය (ලාභ/අලාභ)", "ව්‍යාපාරයේ ණය", "හිමිකරුවන්ගේ ප්‍රාග්ධනය"], answer: 1, explanation: "යම් කාලයකට අදාළ ආදායම් වලින් වියදම් අඩු කර ව්‍යාපාරයේ ශුද්ධ ලාභය හෝ අලාභය මෙයින් පෙන්වයි." },
-  { paperId: 2, id: 58, subject: "ACC", question: "'අත්තිකාරම් ක්‍රමය' (Imprest system) යටතේ සුළු මුදල් අයකැමිට මාසය අවසානයේ/මුලදී නැවත ලැබෙන්නේ කුමන මුදලද?", options: ["සම්පූර්ණ අත්තිකාරම් මුදල", "පසුගිය මාසයේ වියදම් කළ මුදල", "ස්ථාවර මුදලක්", "ලාභයෙන් කොටසක්"], answer: 1, explanation: "අත්තිකාරම් ක්‍රමයේදී ඊළඟ මාසය සඳහා නැවත ලබා දෙන්නේ (ප්‍රතිපූරණය කරන්නේ) පෙර මාසයේ සැබැවින්ම වියදම් වූ මුදල පමණි." },
-  { paperId: 2, id: 59, subject: "ACC", question: "පරීක්ෂණ ශේෂයක් (Trial Balance) පිළියෙළ කිරීමෙන් අනාවරණය කරගත හැකි දෝෂයක් වන්නේ?", options: ["මූලධර්ම දෝෂ", "එක් ගිණුමක පමණක් සටහන් කිරීමේ දෝෂ", "අත්හැරීමේ දෝෂ", "හිලව් වීමේ දෝෂ"], answer: 1, explanation: "ද්විත්ව සටහන් සම්පූර්ණ නොවන දෝෂ (හර පමණක් හෝ බැර පමණක් සටහන් වීම) පරීක්ෂණ ශේෂය හරහා හඳුනාගත හැක." },
-  { paperId: 2, id: 60, subject: "ACC", question: "සමාගමක කොටස් නිකුතුවකදී 'අධිමිල' (Premium) යනු කුමක්ද?", options: ["නාමික අගයට අඩුවෙන් කොටස් නිකුත් කිරීම", "නාමික අගයට වඩා වැඩි අගයකට කොටස් නිකුත් කිරීම", "ලාභාංශ ගෙවීම", "කොටස් නැවත මිලදී ගැනීම"], answer: 1, explanation: "රු. 10ක නාමික අගයක් ඇති කොටසක් රු. 12කට නිකුත් කරන්නේ නම් රු. 2ක අධිමිලයක් (Premium) පවතී." },
-  { paperId: 2, id: 61, subject: "ACC", question: "හවුල් ව්‍යාපාරයක 'ජංගම ගිණුම' (Current Account) භාවිතා කරන්නේ මූලිකවම කුමක් සඳහාද?", options: ["ප්‍රාග්ධනය ගෙන ඒම සටහන් කිරීමට", "හවුල්කරුවන්ගේ වාර්ෂික ලාභ, වැටුප් හා ගැනුම් සටහන් කිරීමට", "වත්කම් මිලදී ගැනීමට", "ණය ලබා ගැනීමට"], answer: 1, explanation: "ස්ථාවර ප්‍රාග්ධන ගිණුම් පවතින විට, හවුල්කරුවන්ගේ වාර්ෂික වෙනස්වීම් සටහන් කරන්නේ ජංගම ගිණුම් වලිනි." },
-  { paperId: 2, id: 62, subject: "ACC", question: "කර්මාන්තශාලාවක නිෂ්පාදන පිරිවැයට (Production Cost) අයත් නොවන වියදම කුමක්ද?", options: ["ඍජු අමුද්‍රව්‍ය", "කර්මාන්තශාලා විදුලිය", "කාර්යාල පරිපාලන වියදම්", "ඍජු ශ්‍රමය"], answer: 2, explanation: "කාර්යාලයේ පරිපාලන වියදම් භාණ්ඩ නිෂ්පාදනයට සෘජුවම සම්බන්ධ නොවන බැවින් එය කාලපරිච්ඡේද පිරිවැයකි." },
-  { paperId: 2, id: 63, subject: "ACC", question: "සීමිත පොදු සමාගමක ලාභ අලාභ විසර්ජන ගිණුමේ සටහන් වන අයිතමයක් වන්නේ?", options: ["විකුණුම්", "යෝජිත ලාභාංශ", "සේවක වැටුප්", "ක්ෂය කිරීම්"], answer: 1, explanation: "ඉපැයූ ලාභය කොටස්කරුවන් අතර බෙදා හැරීම (ලාභාංශ) සහ සංචිත වලට මාරු කිරීම විසර්ජන ගිණුමේ පෙන්වයි." },
-  { paperId: 2, id: 64, subject: "ACC", question: "මූල්‍ය අනුපාත අතරින් ද්‍රවශීලතා අනුපාතයක් (Liquidity Ratio) සඳහා උදාහරණයක් වන්නේ?", options: ["දළ ලාභ අනුපාතය", "ජංගම අනුපාතය", "තොග හැරවුම් අනුපාතය", "ණයහිමි අනුපාතය"], answer: 1, explanation: "ජංගම වගකීම් ගෙවීමට ඇති හැකියාව මනින ජංගම අනුපාතය (Current Ratio) සහ ශීඝ්‍ර අනුපාතය ද්‍රවශීලතා අනුපාත වේ." },
-  { paperId: 2, id: 65, subject: "ACC", question: "මුදල් ප්‍රවාහ ප්‍රකාශයක් (Cash Flow Statement) ප්‍රධාන ක්‍රියාකාරකම් කීයකින් සමන්විතද?", options: ["දෙකයි", "තුනයි", "හතරයි", "පහයි"], answer: 1, explanation: "එය මෙහෙයුම්, ආයෝජන සහ මූල්‍ය (Operating, Investing, Financing) යන ක්‍රියාකාරකම් 3 න් සමන්විත වේ." },
-  { paperId: 2, id: 66, subject: "ACC", question: "ක්ෂය කිරීම් ගණනය කිරීමේ 'සෘජු මාර්ග ක්‍රමය' (Straight-line method) යටතේ වාර්ෂික ක්ෂය කිරීම?", options: ["වසරින් වසර අඩු වේ", "සෑම වසරකම සමාන වේ", "වසරින් වසර වැඩි වේ", "භාවිතය මත වෙනස් වේ"], answer: 1, explanation: "වත්කමේ පිරිවැය ආයු කාලයෙන් බෙදා සෑම වසරකටම සමාන ක්ෂය කිරීමේ මුදලක් වෙන් කිරීම මෙහිදී සිදුවේ." },
-  { paperId: 2, id: 67, subject: "ACC", question: "ගැනුම් ජර්නලයේ (Purchases Journal) මාසික එකතුව මාරු කරනු ලබන්නේ?", options: ["ගැනුම් ගිණුමේ හර පැත්තට", "ණයහිමි ගිණුමේ හර පැත්තට", "විකුණුම් ගිණුමට", "මුදල් පොතට"], answer: 0, explanation: "ගැනුම් ජර්නලයේ මුළු එකතුව පොදු ලෙජරයේ ඇති ගැනුම් ගිණුමට හර (Debit) කරනු ලැබේ." },
-  { paperId: 2, id: 68, subject: "ECON", question: "ආර්ථික විද්‍යාවේ පියා ලෙස සැලකෙන්නේ කවුද?", options: ["කාල් මාක්ස්", "ඇඩම් ස්මිත්", "ලයනල් රොබින්ස්", "ජෝන් මේනාඩ් කේන්ස්"], answer: 1, explanation: "'ජාතීන්ගේ ධනය' (Wealth of Nations) කෘතිය රචනා කළ ඇඩම් ස්මිත් ආර්ථික විද්‍යාවේ පියා ලෙස සැලකේ." },
-  { paperId: 2, id: 69, subject: "ECON", question: "මිශ්‍ර ආර්ථික පද්ධතියක (Mixed Economy) ප්‍රධාන ලක්ෂණයක් වන්නේ?", options: ["රජය පමණක් තීරණ ගැනීම", "රාජ්‍ය සහ පෞද්ගලික අංශය යන දෙකම පැවතීම", "මිල යන්ත්‍රණය නොමැති වීම", "සියලු දේපළ පෞද්ගලික වීම"], answer: 1, explanation: "මිශ්‍ර ආර්ථිකයක වෙළඳපොල යාන්ත්‍රණය මෙන්ම රජයේ මැදිහත්වීමද එකවර ක්‍රියාත්මක වේ." },
-  { paperId: 2, id: 70, subject: "ECON", question: "පාරිභෝගික අතිරික්තය (Consumer Surplus) යනු කුමක්ද?", options: ["පාරිභෝගිකයා ඉතිරි කරන මුදල", "පාරිභෝගිකයා ගෙවීමට කැමති උපරිම මිල සහ සැබෑ ලෙස ගෙවන මිල අතර වෙනස", "භාණ්ඩවල අතිරික්තය", "අමතර ලාභය"], answer: 1, explanation: "ඔබ යම් දෙයකට රු. 100ක් ගෙවීමට සූදානම්ව සිටියදී එය රු. 80කට ලැබුණොත් ඉතිරි රු. 20 පාරිභෝගික අතිරික්තයයි." },
-  { paperId: 2, id: 71, subject: "ECON", question: "වෙළඳපොලක සමතුලිත මිලක් (Equilibrium Price) තීරණය වන්නේ කෙසේද?", options: ["රජයේ නියෝගයක් මගින්", "ඉල්ලුම සහ සැපයුම සමාන වන ලක්ෂ්‍යයේදී", "සැපයුම උපරිම වූ විට", "අවම පිරිවැයේදී"], answer: 1, explanation: "පාරිභෝගිකයා ඉල්ලන ප්‍රමාණයත් විකුණුම්කරු සපයන ප්‍රමාණයත් සමාන වන මිල සමතුලිත මිලයි." },
-  { paperId: 2, id: 72, subject: "ECON", question: "ආදේශක භාණ්ඩයක (Substitute Good) මිල ඉහළ ගියහොත් අනෙක් භාණ්ඩයේ ඉල්ලුමට කුමක් සිදුවේද?", options: ["ඉල්ලුම අඩු වේ", "ඉල්ලුම වැඩි වේ", "ඉල්ලුම වෙනස් නොවේ", "ඉල්ලුම ශුන්‍ය වේ"], answer: 1, explanation: "උදාහරණයක් ලෙස කෝපි වල මිල ඉහළ ගියහොත්, එහි ආදේශකයක් වන තේ සඳහා පාරිභෝගික ඉල්ලුම වැඩි වේ." },
-  { paperId: 2, id: 73, subject: "ECON", question: "පූර්ණ තරඟකාරී වෙළඳපොලක තනි ආයතනයකට මුහුණ දීමට සිදුවන ඉල්ලුම් වක්‍රයේ හැඩය කුමක්ද?", options: ["ඉහළ සිට පහළට බෑවුම් වන", "සම්පූර්ණයෙන්ම නම්‍ය (තිරස්)", "සිරස්", "ධන බෑවුමක් සහිත"], answer: 1, explanation: "ඔවුන් මිල බාරගන්නන් (Price Takers) වන බැවින් පවතින මිලට ඕනෑම ප්‍රමාණයක් අලෙවි කළ හැකිය. එබැවින් වක්‍රය තිරස් වේ." },
-  { paperId: 2, id: 74, subject: "ECON", question: "දළ දේශීය නිෂ්පාදිතය (GDP) යන්නෙන් අදහස් වන්නේ කුමක්ද?", options: ["රටක පුරවැසියන් උපයන ආදායම", "රටක භූගෝලීය සීමාව තුළ නිපදවන ලද අවසන් භාණ්ඩ හා සේවා වල වටිනාකම", "මුළු අපනයන වටිනාකම", "රජයේ සම්පූර්ණ ආදායම"], answer: 1, explanation: "රටේ දේශසීමාව තුළ විදේශිකයින් ඇතුළු සියලු දෙනා නිපදවන අවසන් භාණ්ඩ වල වටිනාකම GDP වේ." },
-  { paperId: 2, id: 75, subject: "ECON", question: "මුදලේ ප්‍රධාන කාර්යයක් නොවන්නේ කුමක්ද?", options: ["හුවමාරු මාධ්‍යයක් ලෙස ක්‍රියා කිරීම", "වටිනාකම් මිනුමක් වීම", "ලාභ උපදවන වත්කමක් වීම", "වටිනාකම් ගබඩාවක් වීම"], answer: 2, explanation: "මුදල් යනු හුවමාරුව පහසු කරන මෙවලමක් පමණක් වන අතර එය තනිවම ලාභ උපදවන වත්කමක් නොවේ." },
-  { paperId: 2, id: 76, subject: "ECON", question: "ජාත්‍යන්තර වෙළඳාමේදී 'නිරපේක්ෂ වාසි න්‍යාය' (Absolute Advantage Theory) ඉදිරිපත් කළේ කවුද?", options: ["ඩේවිඩ් රිකාඩෝ", "ඇඩම් ස්මිත්", "තෝමස් මැල්තස්", "ජෝන් මේනාඩ් කේන්ස්"], answer: 1, explanation: "ඇඩම් ස්මිත් විසින් මෙම න්‍යාය ඉදිරිපත් කළ අතර ඩේවිඩ් රිකාඩෝ විසින් සංසන්දනාත්මක වාසි න්‍යාය ඉදිරිපත් කළේය." },
-  { paperId: 2, id: 77, subject: "ECON", question: "මධ්‍යම බැංකුවක් විසින් රටේ මුදල් සැපයුම පාලනය කිරීමට භාවිතා කරන උපක්‍රමයක් වන්නේ?", options: ["බදු අනුපාත වෙනස් කිරීම", "විවෘත වෙළඳපොල කටයුතු (OPO)", "රජයේ වියදම් පාලනය", "සහනාධාර ලබා දීම"], answer: 1, explanation: "රජයේ සුරැකුම්පත් (භාණ්ඩාගාර බිල්පත්) වෙළඳපොලේ විකිණීම හා මිලදී ගැනීම විවෘත වෙළඳපොල කටයුතු වේ." },
-  { paperId: 2, id: 78, subject: "ECON", question: "සෘණ බාහිරතාවයකට (Negative Externality) උදාහරණයක් වන්නේ කුමක්ද?", options: ["අධ්‍යාපනය ලබා දීම", "කර්මාන්තශාලාවකින් පරිසරය දූෂණය වීම", "එන්නත් ලබා දීම", "පොදු උද්‍යාන සෑදීම"], answer: 1, explanation: "ආර්ථික කටයුත්තක් නිසා තුන්වන පාර්ශවයකට (සමාජයට) සිදුවන අහිතකර බලපෑම් සෘණ බාහිරතා වේ." },
-  { paperId: 2, id: 79, subject: "ECON", question: "ප්‍රගතිශීලී බද්දක (Progressive Tax) ලක්ෂණයක් වන්නේ කුමක්ද?", options: ["ආදායම වැඩි වන විට බදු අනුපාතය අඩු වීම", "ආදායම වැඩි වන විට බදු අනුපාතය ද ඉහළ යාම", "සැමට සමාන බද්දක් අය කිරීම", "ආදායම මත රඳා නොපැවතීම"], answer: 1, explanation: "වැඩි ආදායම් ලබන්නන්ගෙන් වැඩි ප්‍රතිශතයක් බදු ලෙස අය කිරීම (උදා: ආදායම් බද්ද) මෙහි ලක්ෂණයයි." },
-  { paperId: 2, id: 80, subject: "ECON", question: "කෙටිකාලීන නිෂ්පාදන ශ්‍රිතයේදී 'ක්ෂීණ වන ඵලදා නීතිය' (Law of Diminishing Returns) ක්‍රියාත්මක වීමට ප්‍රධාන හේතුව කුමක්ද?", options: ["සියලුම සාධක විචල්‍ය වීම", "අවම වශයෙන් එක් නිෂ්පාදන සාධකයක් හෝ ස්ථාවරව පැවතීම", "තාක්ෂණය දියුණු වීම", "ශ්‍රමිකයින්ගේ කාර්යක්ෂමතාව අඩු වීම"], answer: 1, explanation: "කෙටිකාලයේදී ස්ථාවර සාධක (උදා: යන්ත්‍ර) වෙනස් කළ නොහැකි නිසා විචල්‍ය සාධක (උදා: ශ්‍රමය) පමණක් වැඩිකරන විට අමතර නිෂ්පාදිතය ක්‍රමයෙන් අඩුවේ." },
-
-  // --- PAPER 3 ---
-  { paperId: 3, id: 81, subject: "BS", question: "ව්‍යාපාරයක අභ්‍යන්තර පරිසරයට අයත් සාධකයක් වන්නේ?", options: ["තරඟකරුවන්", "රජය", "සේවකයින්", "සැපයුම්කරුවන්"], answer: 2, explanation: "සේවකයින්, කළමනාකරුවන් හා ආයතනික සංස්කෘතිය අභ්‍යන්තර පරිසරයට අයත් වේ." },
-  { paperId: 3, id: 82, subject: "ACC", question: "සුළු මුදල් පොතක ශේෂය යනු කුමක්ද?", options: ["ආදායමක්", "වගකීමක්", "වියදමක්", "වත්කමක්"], answer: 3, explanation: "සුළු මුදල් අයකැමි අතේ ඉතිරිව ඇති මුදල ව්‍යාපාරයට ජංගම වත්කමකි." },
-  { paperId: 3, id: 83, subject: "ECON", question: "මුදලේ වටිනාකම හා පොදු මිල මට්ටම අතර ඇති සම්බන්ධය කුමක්ද?", options: ["අනුලෝම", "ප්‍රතිලෝම", "සම්බන්ධයක් නැත", "ශුන්‍ය"], answer: 1, explanation: "මිල මට්ටම ඉහළ යනවිට මුදලින් ගත හැකි භාණ්ඩ ප්‍රමාණය (මුදලේ අගය) අඩු වේ." },
-  { paperId: 3, id: 84, subject: "BS", question: "සන්නිවේදන ක්‍රියාවලියේ මූලික අංගයක් නොවන්නේ?", options: ["යවන්නා", "ප්‍රතිචාරය", "තරඟකරුවා", "මාධ්‍යය"], answer: 2, explanation: "තරඟකරුවා සන්නිවේදන ක්‍රියාවලියට අදාළ නැත." },
-  { paperId: 3, id: 85, subject: "ACC", question: "වෙළඳ වට්ටම් (Trade Discount) ගිණුම් පොත් වල සටහන් කරන්නේ කෙසේද?", options: ["හර කරනු ලැබේ", "බැර කරනු ලැබේ", "ගිණුම් වල සටහන් නොකෙරේ", "සස්පෙන්ස් ගිණුමට දමයි"], answer: 2, explanation: "වෙළඳ වට්ටම ඉන්වොයිසියෙන් අඩු කරනවා මිස ද්විත්ව සටහනක් නොතබයි." },
-  { paperId: 3, id: 86, subject: "ECON", question: "සැපයුම් නීතිය අනුව මිල වැඩි වන විට සැපයුම් ප්‍රමාණයට කුමක් සිදුවේද?", options: ["අඩු වේ", "වැඩි වේ", "වෙනස් නොවේ", "ශුන්‍ය වේ"], answer: 1, explanation: "මිල සහ සැපයුම් ප්‍රමාණය අතර අනුලෝම සම්බන්ධයක් පවතී." },
-  { paperId: 3, id: 87, subject: "BS", question: "E-Commerce හි C2C ගනුදෙනුවකට උදාහරණයක්?", options: ["Amazon", "Daraz", "eBay", "Ikman.lk"], answer: 3, explanation: "පාරිභෝගිකයින් දෙදෙනෙක් අතර සෘජුවම සිදුවන ගනුදෙනු C2C (Ikman.lk) වේ." },
-  { paperId: 3, id: 88, subject: "ACC", question: "බැංකු අයිරාවක් (Bank Overdraft) යනු?", options: ["ජංගම වත්කමක්", "ස්ථාවර වත්කමක්", "ජංගම වගකීමක්", "දිගුකාලීන ණයක්"], answer: 2, explanation: "ගිණුමේ ඇති මුදලට වඩා ගත් විට එය බැංකුවට ගෙවිය යුතු ජංගම වගකීමකි." },
-  { paperId: 3, id: 89, subject: "ECON", question: "මූලික ආර්ථික ප්‍රශ්න ඇතිවීමට ප්‍රධානතම හේතුව කුමක්ද?", options: ["ජනගහන වර්ධනය", "සම්පත් වල හිඟකම", "උද්ධමනය", "රජයේ පාලනය"], answer: 1, explanation: "අසීමිත අවශ්‍යතා සපුරාලීමට තරම් සම්පත් නොමැති වීම (හිඟකම) මූලික හේතුවයි." },
-  { paperId: 3, id: 90, subject: "BS", question: "පාරිභෝගික අයිතීන් සුරැකීමේ ජාත්‍යන්තර දිනය කවදාද?", options: ["මාර්තු 15", "අප්‍රේල් 10", "මැයි 1", "ජුනි 5"], answer: 0, explanation: "සෑම වසරකම මාර්තු 15 වනදා ජාත්‍යන්තර පාරිභෝගික අයිතීන් දිනය ලෙස සමරයි." },
-  { paperId: 3, id: 91, subject: "ACC", question: "ප්‍රාග්ධන ආදායමකට (Capital Receipt) උදාහරණයක්?", options: ["විකුණුම් ආදායම", "පරණ යන්ත්‍රයක් විකිණීමෙන් ලැබූ මුදල", "වට්ටම් ලැබීම්", "කොමිස් ලැබීම්"], answer: 1, explanation: "ස්ථාවර වත්කමක් විකිණීමෙන් ලැබෙන ආදායම ප්‍රාග්ධන ආදායමකි." },
-  { paperId: 3, id: 92, subject: "ECON", question: "GNP සහ GDP අතර වෙනස කුමක්ද?", options: ["බදු", "විදේශයන්ගෙන් ලැබූ ශුද්ධ සාධක ආදායම (NPIA)", "සහනාධාර", "ක්ෂය කිරීම්"], answer: 1, explanation: "GDP ට NPIA එකතු කළ විට GNP ලැබේ." },
-  { paperId: 3, id: 93, subject: "BS", question: "ලෝකයේ ප්‍රථම කොටස් වෙළඳපොල ආරම්භ වූයේ කුමන රටේද?", options: ["ඇමරිකාව", "එක්සත් රාජධානිය", "නෙදර්ලන්තය", "ප්‍රංශය"], answer: 2, explanation: "1602 දී ඕලන්දයේ (නෙදර්ලන්තය) ඇම්ස්ටර්ඩෑම් හිදී මෙය ආරම්භ විය." },
-  { paperId: 3, id: 94, subject: "ACC", question: "අස්පෘශ්‍ය වත්කමක් නොවන්නේ කුමක්ද?", options: ["වෙළඳ ලකුණු", "පේටන්ට් බලපත්‍ර", "කීර්තිනාමය", "ආයෝජන"], answer: 3, explanation: "ආයෝජන (Investments) යනු අස්පෘශ්‍ය වත්කමක් නොවේ." },
-  { paperId: 3, id: 95, subject: "ECON", question: "භාණ්ඩයක ඉල්ලුම් වක්‍රය දකුණට විතැන් වීමට හේතුවක්?", options: ["ආදේශක භාණ්ඩයක මිල අඩු වීම", "පාරිභෝගික ආදායම වැඩි වීම", "මිල ඉහළ යාම", "මිල පහළ යාම"], answer: 1, explanation: "ආදායම වැඩි වන විට එම මිලටම භාණ්ඩය වැඩිපුර ඉල්ලන බැවින් වක්‍රය දකුණට විතැන් වේ." },
-  { paperId: 3, id: 96, subject: "BS", question: "රක්ෂණ ඔප්පුවක් නිකුත් කිරීමේදී රක්ෂණකරු අයකරන මුදල?", options: ["ලාභාංශය", "වන්දි මුදල", "වාරිකය (Premium)", "කොමිස් මුදල"], answer: 2, explanation: "රක්ෂණාවරණය වෙනුවෙන් ගෙවන මුදල වාරිකය ලෙස හැඳින්වේ." },
-  { paperId: 3, id: 97, subject: "ACC", question: "ප්‍රතිපාදන (Provisions) යනු කුමක්ද?", options: ["ස්ථිර වගකීමක්", "අනාගතයේ සිදුවිය හැකි පාඩුවක් වෙනුවෙන් ලාභයෙන් කරන වෙන් කිරීමක්", "අලුත් වත්කමක්", "ආදායමක්"], answer: 1, explanation: "අනාගත පාඩු (උදා: සැක සහිත ණය) පියවීමට වර්තමාන ලාභයෙන් වෙන් කරන මුදලයි." },
-  { paperId: 3, id: 98, subject: "ECON", question: "උද්ධමනය මනින ප්‍රධාන දර්ශකය කුමක්ද?", options: ["GDP අනුපාතය", "කොළඹ පාරිභෝගික මිල දර්ශකය (CCPI)", "සේවා වියුක්ති අනුපාතය", "පොලී අනුපාතය"], answer: 1, explanation: "ශ්‍රී ලංකාවේ උද්ධමනය ප්‍රධාන වශයෙන් මනින්නේ CCPI මගිනි." },
-  { paperId: 3, id: 99, subject: "BS", question: "කළමනාකරුවෙකුගේ 'මානුෂීය කුසලතාව' (Human Skill) වඩාත් වැදගත් වන්නේ කාටද?", options: ["ඉහළ කළමනාකරුවන්ට පමණි", "පහළ කළමනාකරුවන්ට පමණි", "සියලුම මට්ටම්වල කළමනාකරුවන්ට", "ව්‍යාපාරයේ අයිතිකරුවන්ට"], answer: 2, explanation: "මිනිසුන් සමඟ වැඩ කිරීමට අවශ්‍ය කුසලතාව සෑම මට්ටමකටම එකසේ වැදගත් වේ." },
-  { paperId: 3, id: 100, subject: "ACC", question: "හිමිකම් අඩුවීමට හේතු වන ගනුදෙනුවක් වන්නේ?", options: ["ලාභය", "අතිරේක ප්‍රාග්ධනය", "ගැනුම් (Drawings)", "ණය ගැනීම"], answer: 2, explanation: "අයිතිකරු ව්‍යාපාරයෙන් මුදල් හෝ භාණ්ඩ ගැනීමේදී හිමිකම අඩු වේ." },
-  { paperId: 3, id: 101, subject: "ECON", question: "රටක 'ආර්ථික වර්ධනය' මනින්නේ කුමකින්ද?", options: ["මිල මට්ටම", "රැකියා වියුක්තිය", "මූර්ත දළ දේශීය නිෂ්පාදිතයේ (Real GDP) වර්ධනය", "ආනයන ප්‍රමාණය"], answer: 2, explanation: "රටක නිපදවන භාණ්ඩ හා සේවා වල මූර්ත අගය වැඩිවීම ආර්ථික වර්ධනයයි." },
-  { paperId: 3, id: 102, subject: "BS", question: "ශ්‍රී ලංකාවේ ආයතනයක් ලියාපදිංචි කරන ප්‍රධාන නීතිය කුමක්ද?", options: ["2007 අංක 7 දරන සමාගම් පනත", "1990 පාරිභෝගික පනත", "2000 රක්ෂණ පනත", "1980 කම්කරු පනත"], answer: 0, explanation: "ශ්‍රී ලංකාවේ සමාගම් ලියාපදිංචි කරන්නේ 2007 අංක 7 දරන සමාගම් පනත යටතේය." },
-  { paperId: 3, id: 103, subject: "ACC", question: "මුදල් පොතක් යනු?", options: ["මූලික සටහන් පොතක් පමණි", "ලෙජරයක් පමණි", "මූලික සටහන් පොතක් මෙන්ම ලෙජර් ගිණුමක් ද වේ", "ජර්නලයකි"], answer: 2, explanation: "මුදල් පොත, මුදල් ගිණුම ලෙසද ක්‍රියා කරන නිසා එය මූලික පොතක් මෙන්ම ලෙජරයක් ද වේ." },
-  { paperId: 3, id: 104, subject: "ECON", question: "විරැකියාව (Unemployment) යනු?", options: ["වැඩ කිරීමට අකමැති අය", "වැඩ කිරීමට කැමති නමුත් රැකියාවක් නොලැබෙන අය", "විශ්‍රාමිකයින්", "ළමයින්"], answer: 1, explanation: "පවතින වැටුපට වැඩ කිරීමට හැකියාව හා කැමැත්ත තිබියදීත් රැකියාවක් නොමැති වීමයි." },
-  { paperId: 3, id: 105, subject: "BS", question: "සමාගමක සැබෑ අයිතිකරුවන් වන්නේ කවුද?", options: ["අධ්‍යක්ෂක මණ්ඩලය", "සාමාන්‍ය කොටස්කරුවන්", "ණයකරුවන්", "කළමනාකරුවන්"], answer: 1, explanation: "සාමාන්‍ය කොටස් මිලදී ගන්නා කොටස්කරුවන් සමාගමේ සැබෑ අයිතිකරුවන් වේ." },
-  { paperId: 3, id: 106, subject: "ACC", question: "ජංගම ගිණුමක (Current Account) හර ශේෂයක් තිබීමෙන් අදහස් වන්නේ කුමක්ද?", options: ["ව්‍යාපාරයට බැංකුවෙන් මුදල් ලැබීමට ඇත", "ව්‍යාපාරය බැංකුවට ණයයි (අයිරාව)", "ව්‍යාපාරය ලාභ ලබා ඇත", "බැංකුව වසා ඇත"], answer: 0, explanation: "බැංකු ගිණුම (මුදල් පොතේ) හර ශේෂයක් යනු ව්‍යාපාරයේ ධන (Positive) මුදල් ශේෂයකි." },
-  { paperId: 3, id: 107, subject: "ECON", question: "රජයේ අයවැයක (Budget) ප්‍රධාන අරමුණ කුමක්ද?", options: ["බැංකු පාලනය", "ලබන වසරේ රජයේ ආදායම් හා වියදම් ඇස්තමේන්තු කිරීම", "උද්ධමනය මැනීම", "වෙළඳාම තහනම් කිරීම"], answer: 1, explanation: "අයවැයක් යනු රජයේ ඉදිරි මූල්‍ය සැලැස්මයි." },
-  { paperId: 3, id: 108, subject: "BS", question: "මානව සම්පත් කළමනාකරණයේ (HRM) අවසන් පියවර?", options: ["පුහුණුව", "කාර්යසාධන ඇගයීම", "විශ්‍රාම ගැන්වීම / ඉවත් කිරීම", "තෝරා ගැනීම"], answer: 2, explanation: "සේවකයෙකු ආයතනයෙන් ඉවත් වීම හෝ විශ්‍රාම ගැන්වීම මානව සම්පත් ක්‍රියාවලියේ අවසන් පියවරයි." },
-  { paperId: 3, id: 109, subject: "ACC", question: "ගිණුම්කරණයේ 'වැඩ කොටස්' (Work-in-progress) යනු?", options: ["අමුද්‍රව්‍ය පමණි", "නිමි භාණ්ඩ", "නිෂ්පාදන ක්‍රියාවලිය අවසන් වී නොමැති භාණ්ඩ", "විකුණූ භාණ්ඩ"], answer: 2, explanation: "නිෂ්පාදනය වෙමින් පවතින නමුත් තවමත් නිමි භාණ්ඩ බවට පත් වී නැති තොගයයි." },
-  { paperId: 3, id: 110, subject: "ECON", question: "ආවස්ථික පිරිවැයක් නොමැති භාණ්ඩ හඳුන්වන්නේ?", options: ["ආර්ථික භාණ්ඩ", "පොදු භාණ්ඩ", "නිදහස් භාණ්ඩ (Free goods)", "පාරිභෝගික භාණ්ඩ"], answer: 2, explanation: "වාතය, හිරු එළිය වැනි බහුලව ඇති දේවල් සඳහා ආවස්ථික පිරිවැයක් නැත." },
-  { paperId: 3, id: 111, subject: "BS", question: "ශ්‍රී ලංකාවේ සුළු හා මධ්‍යම පරිමාණ ව්‍යවසාය (SME) අර්ථදැක්වීමට භාවිතා නොකරන සාධකය කුමක්ද?", options: ["සේවක සංඛ්‍යාව", "වාර්ෂික පිරිවැටුම", "ආයෝජන ප්‍රමාණය", "අයිතිකරුගේ වයස"], answer: 3, explanation: "ව්‍යාපාරයේ ප්‍රමාණය මැනීමට අයිතිකරුගේ වයස අදාළ නොවේ." },
-  { paperId: 3, id: 112, subject: "ACC", question: "'ප්‍රාග්ධන රක්ෂිතයකට' (Capital Reserve) උදාහරණයක්?", options: ["රඳවාගත් ලාභ", "සාමාන්‍ය රක්ෂිත", "වත්කම් ප්‍රතිප්‍රමාණ රක්ෂිතය", "යෝජිත ලාභාංශ"], answer: 2, explanation: "වත්කම් වල අගය ඉහළ යාමෙන් සෑදෙන රක්ෂිතය ප්‍රාග්ධන ලාභයක් බැවින් එය ප්‍රාග්ධන රක්ෂිතයකි." },
-  { paperId: 3, id: 113, subject: "ECON", question: "කාර්මිකරණය නිසා පරිසරයට වන හානිය ආර්ථික විද්‍යාවේදී හඳුන්වන්නේ?", options: ["ධන බාහිරතා", "සෘණ බාහිරතා (Negative Externalities)", "සහනාධාර", "රාජ්‍ය වියදම්"], answer: 1, explanation: "තෙවන පාර්ශවයකට සිදුවන අහිතකර බලපෑම් සෘණ බාහිරතා වේ." },
-  { paperId: 3, id: 114, subject: "BS", question: "ව්‍යාපාරයක 'දූත මෙහෙවර' (Mission) යනු කුමක්ද?", options: ["අනාගත සිහිනය", "වර්තමානයේ ව්‍යාපාරය පවතින මූලික අරමුණ හා කාර්යය", "ලාභය අනුපාතය", "සේවක සංඛ්‍යාව"], answer: 1, explanation: "දැක්ම අනාගතය පෙන්වන අතර, දූත මෙහෙවර මගින් වර්තමාන කාර්යභාරය විස්තර කරයි." },
-  { paperId: 3, id: 115, subject: "ACC", question: "හිලව් වීමේ දෝෂයක් (Compensating Error) යනු?", options: ["එක් පැත්තක් පමණක් සටහන් වීම", "හර දෝෂයක් තවත් බැර දෝෂයකින් සමාන වී මැකී යාම", "ගිණුමේ නම වැරදීම", "ගණන් නොගැනීම"], answer: 1, explanation: "දෝෂ දෙකක් හෝ කිහිපයක් එකිනෙක කැපී යාමෙන් పරීක්ෂණ ශේෂය එකඟ වන දෝෂයකි." },
-  { paperId: 3, id: 116, subject: "ECON", question: "ශ්‍රමයේ ප්‍රතිලාභය හඳුන්වන්නේ කුමක් ලෙසද?", options: ["පොලිය", "කුලිය", "වැටුප", "ලාභය"], answer: 2, explanation: "භූමියට කුලියත්, ප්‍රාග්ධනයට පොලියත්, ව්‍යවසායකත්වයට ලාභයත්, ශ්‍රමයට වැටුපත් හිමිවේ." },
-  { paperId: 3, id: 117, subject: "BS", question: "පාරිභෝගිකයාගේ සිත තුළ යම් භාණ්ඩයක් ගැන ඇතිවන ප්‍රතිරූපය?", options: ["අලෙවිකරණය", "වෙළඳ නාමකරණය (Branding)", "ප්‍රචාරණය", "බෙදාහැරීම"], answer: 1, explanation: "වෙළඳ නාමකරණය හරහා භාණ්ඩය වෙනත් භාණ්ඩ වලින් වෙන්කොට හඳුනාගැනීමක් සිදුකරයි." },
-  { paperId: 3, id: 118, subject: "ACC", question: "කාලපරිච්ඡේද සංකල්පය (Periodicity Concept) යනු?", options: ["මුදල් වලින් පමණක් මැනීම", "ව්‍යාපාරයේ ආයු කාලය සමාන කාල පරිච්ඡේද වලට බෙදීම", "ද්විත්ව සටහන් තැබීම", "ලාභය පමණක් බැලීම"], answer: 1, explanation: "සෑම වසරකම (හෝ නිශ්චිත කාලයක) අවසානයේ මූල්‍ය වාර්තා පිළියෙල කිරීමට මෙම සංකල්පය යොදාගනී." },
-  { paperId: 3, id: 119, subject: "ECON", question: "තීරු බදු (Tariffs) පනවන්නේ කුමක් මතද?", options: ["දේශීය භාණ්ඩ", "ආනයන භාණ්ඩ", "සේවක වැටුප්", "ලාභය"], answer: 1, explanation: "රටකට ගෙන එන ආනයනික භාණ්ඩ සීමා කිරීමට රජය විසින් තීරු බදු පනවයි." },
-  { paperId: 3, id: 120, subject: "BS", question: "SWOT විශ්ලේෂණයේ 'O' අකුරින් අදහස් වන්නේ?", options: ["Organization", "Opportunities (අවස්ථා)", "Operations", "Objectives"], answer: 1, explanation: "SWOT යනු Strengths, Weaknesses, Opportunities, Threats යන්නයි." },
-
-  // --- COMMERCE PRO MODE ---
-  { paperId: 'H1', id: 251, subject: "BS", question: "ලෝකයේ ප්‍රථම කොටස් වෙළඳපොල (Stock Exchange) පිහිටුවූයේ කුමන රටේද?", options: ["ඇමරිකා එක්සත් ජනපදය", "එක්සත් රාජධානිය", "නෙදර්ලන්තය (ඕලන්දය)", "ප්‍රංශය"], answer: 2, explanation: "1602 දී ඕලන්දයේ ඇම්ස්ටර්ඩෑම් (Amsterdam) නුවර ලොව ප්‍රථම කොටස් වෙළඳපොල ආරම්භ විය." },
-  { paperId: 'H2', id: 252, subject: "ECON", question: "Bitcoin (බිට්කොයින්) නම් ඩිජිටල් මුදල් ඒකකයේ නිර්මාතෘ ලෙස සැලකෙන්නේ කවුද?", options: ["බිල් ගේට්ස්", "ඊලෝන් මස්ක්", "මාර්ක් සකර්බර්ග්", "සතෝෂි නකමොටෝ (Satoshi Nakamoto)"], answer: 3, explanation: "2009 දී සතෝෂි නකමොටෝ නැමැති අන්වර්ථ නාමයකින් පෙනී සිටි පුද්ගලයෙකු හෝ කණ්ඩායමක් මෙය නිර්මාණය කළේය." },
-  { paperId: 'H3', id: 253, subject: "BS", question: "නවීන අලෙවිකරණයේ පියා (Father of Modern Marketing) ලෙස හැඳින්වෙන්නේ කවුද?", options: ["පීටර් ඩ්‍රකර්", "පිලිප් කොට්‍ලර් (Philip Kotler)", "හෙන්රි ෆයෝල්", "එෆ්. ඩබ්. ටේලර්"], answer: 1, explanation: "අලෙවිකරණ සංකල්ප ලොව පුරා ප්‍රචලිත කිරීම සඳහා පිලිප් කොට්‍ලර් ගේ දායකත්වය විශාලය." }
-];
-
-// Generate the remaining PRO Levels for Commerce up to 40
-const commerceProLevels = Array.from({length: 37}, (_, i) => ({
-  paperId: `H${i+4}`, 
-  id: 2004 + i, 
-  subject: "COM-PRO", 
-  question: `මෙම අභියෝගය ජයගැනීමට නිවැරදි පිළිතුර තෝරන්න. (Advanced Commerce Challenge ${i+4})`, 
-  options: ["වැරදි පිළිතුරක්", "නිවැරදි පිළිතුර", "තවත් වැරදි එකක්", "මෙයත් වැරදියි"], 
-  answer: 1, 
-  explanation: `ඔබ මෙම අභියෝගය සාර්ථකව අවසන් කළා!`
-}));
-const fullCommerceBank = [...commerceQuestionBank, ...commerceProLevels];
-
-
-// ==========================================
-// 2. SCIENCE QUESTION BANK
-// ==========================================
-const scienceQuestionBank = [
-  // --- PAPER 1 ---
-  { paperId: 1, id: 101, subject: "SCI", question: "ජීවයේ මූලික ව්‍යුහාත්මක ඒකකය කුමක්ද?", options: ["පටකය", "සෛලය", "අවයවය", "දේහය"], answer: 1, explanation: "සියලුම ජීවීන්ගේ මූලික ව්‍යුහාත්මක හා කෘත්‍යමය ඒකකය සෛලයයි." },
-  { paperId: 1, id: 102, subject: "SCI", question: "ආලෝකයේ ප්‍රවේගය රික්තයක් තුළ කොපමණද?", options: ["3 × 10^8 m/s", "3 × 10^6 m/s", "300 m/s", "340 m/s"], answer: 0, explanation: "රික්තයක් තුළ ආලෝකයේ ප්‍රවේගය තත්පරයට මීටර් මිලියන 300 ක් (3 × 10^8 m/s) පමණ වේ." },
-  { paperId: 1, id: 103, subject: "SCI", question: "ජල අණුවක (H2O) අඩංගු හයිඩ්‍රජන් සහ ඔක්සිජන් පරමාණු අනුපාතය කොපමණද?", options: ["1:2", "2:1", "1:1", "3:1"], answer: 1, explanation: "එක් ජල අණුවක හයිඩ්‍රජන් පරමාණු 2ක් සහ ඔක්සිජන් පරමාණු 1ක් (2:1) අඩංගු වේ." },
-  { paperId: 1, id: 104, subject: "SCI", question: "මිනිස් සිරුරේ දිගම අස්ථිය කුමක්ද?", options: ["අන්වස්ථිය (Radius)", "ඌර්වස්ථිය (Femur)", "කශේරුකාව (Spine)", "උරෝස්ථිය (Sternum)"], answer: 1, explanation: "කලව ප්‍රදේශයේ පිහිටා ඇති ඌර්වස්ථිය (Femur) මිනිස් සිරුරේ දිගම සහ ශක්තිමත්ම අස්ථියයි." },
-  { paperId: 1, id: 105, subject: "SCI", question: "පෘථිවි ගුරුත්වාකර්ෂණ ත්වරණයේ (g) සාමාන්‍ය අගය කොපමණද?", options: ["9.8 m/s²", "10.5 m/s²", "8.9 m/s²", "9.8 cm/s²"], answer: 0, explanation: "පෘථිවි පෘෂ්ඨය මත සාමාන්‍ය ගුරුත්වාකර්ෂණ ත්වරණය තත්පර වර්ගයට මීටර් 9.8 කි." },
-  { paperId: 1, id: 106, subject: "SCI", question: "ප්‍රභාසංස්ලේෂණයේදී ශාක මගින් පිටකරන ප්‍රධාන වායුව කුමක්ද?", options: ["කාබන් ඩයොක්සයිඩ්", "ඔක්සිජන්", "නයිට්‍රජන්", "මීතේන්"], answer: 1, explanation: "ප්‍රභාසංස්ලේෂණ ක්‍රියාවලියේදී අතුරු ඵලයක් ලෙස ඔක්සිජන් වායුව පරිසරයට මුදා හැරේ." },
-  { paperId: 1, id: 107, subject: "SCI", question: "විද්‍යුත් ධාරාව මනින ජාත්‍යන්තර සම්මත (SI) ඒකකය කුමක්ද?", options: ["වෝල්ට් (Volt)", "ඕම් (Ohm)", "ඇම්පියර් (Ampere)", "වොට් (Watt)"], answer: 2, explanation: "විද්‍යුත් ධාරාව මැනීම සඳහා ඇම්පියර් (A) භාවිතා කරයි." },
-  { paperId: 1, id: 108, subject: "SCI", question: "ආවර්තිතා වගුවේ සැහැල්ලුම මූලද්‍රව්‍යය කුමක්ද?", options: ["හීලියම්", "ඔක්සිජන්", "හයිඩ්‍රජන්", "කාබන්"], answer: 2, explanation: "හයිඩ්‍රජන් (H) යනු පරමාණුක ක්‍රමාංකය 1 වන, විශ්වයේ ඇති සැහැල්ලුම සහ සුලභම මූලද්‍රව්‍යයයි." },
-  { paperId: 1, id: 109, subject: "SCI", question: "රතු රුධිර සෛල වල අඩංගු, ඔක්සිජන් පරිවහනයට උපකාරී වන වර්ණකය කුමක්ද?", options: ["ක්ලෝරොෆිල්", "හීමොග්ලොබින්", "මෙලනින්", "කෙරටින්"], answer: 1, explanation: "හීමොග්ලොබින් මගින් පෙනහළුවල සිට සිරුරේ අනෙකුත් කොටස් වලට ඔක්සිජන් ප්‍රවාහනය කරයි." },
-  { paperId: 1, id: 110, subject: "SCI", question: "ශබ්දය ගමන් කළ නොහැකි මාධ්‍යය කුමක්ද?", options: ["ඝන ද්‍රව්‍ය", "ද්‍රව", "වායු", "රික්තය"], answer: 3, explanation: "ශබ්දය යනු යාන්ත්‍රික තරංගයකි. එබැවින් එයට ගමන් කිරීමට අංශු සහිත මාධ්‍යයක් අවශ්‍ය වේ, රික්තයක ගමන් කළ නොහැක." },
-  { paperId: 1, id: 111, subject: "SCI", question: "ක්ෂීරපායින් (Mammals) ගේ ප්‍රධාන ලක්ෂණයක් වන්නේ කුමක්ද?", options: ["බිත්තර දැමීම", "පැටවුන්ට කිරි දීම", "කොරපොතු සහිත සම", "ශීත රුධිරික වීම"], answer: 1, explanation: "ක්ෂීරපායී සතුන්ගේ ප්‍රධානතම ලක්ෂණය වන්නේ ගැහැණු සතුන් ස්වකීය පැටවුන්ට කිරි දීමයි." },
-  { paperId: 1, id: 112, subject: "SCI", question: "අම්ලයක් සහ භස්මයක් ප්‍රතික්‍රියා කර ලවණ සහ ජලය සෑදීමේ ප්‍රතික්‍රියාව හඳුන්වන්නේ?", options: ["ඔක්සිකරණය", "උදාසීනකරණය", "බහුඅවයවීකරණය", "වියෝජනය"], answer: 1, explanation: "අම්ලයක ආම්ලික ගුණයත් භස්මයක භාස්මික ගුණයත් නැති වී යන බැවින් එය උදාසීනකරණය නම් වේ." },
-  { paperId: 1, id: 113, subject: "SCI", question: "සෞරග්‍රහ මණ්ඩලයේ ඇති විශාලතම ග්‍රහලෝකය කුමක්ද?", options: ["පෘථිවිය", "සෙනසුරු", "බ්‍රහස්පති", "අඟහරු"], answer: 2, explanation: "බ්‍රහස්පති (Jupiter) යනු අපගේ සෞරග්‍රහ මණ්ඩලයේ ඇති විශාලතම ග්‍රහයා වේ." },
-  { paperId: 1, id: 114, subject: "SCI", question: "DNA වල සම්පූර්ණ තේරුම කුමක්ද?", options: ["Deoxyribonucleic Acid", "Deribonucleic Acid", "Dioxyribo Acid", "Dual Nucleus Acid"], answer: 0, explanation: "DNA යනු ජීවීන්ගේ ජානමය තොරතුරු ගබඩා කර ඇති Deoxyribonucleic Acid (ඩියොක්සිරයිබොනියුක්ලික් අම්ලය) යි." },
-  { paperId: 1, id: 115, subject: "SCI", question: "මිනිස් සිරුරේ සාමාන්‍ය උෂ්ණත්වය (සෙල්සියස් වලින්) කොපමණද?", options: ["30 °C", "37 °C", "98 °C", "40 °C"], answer: 1, explanation: "නිරෝගී මිනිස් සිරුරේ සාමාන්‍ය උෂ්ණත්වය 37 °C (හෝ 98.6 °F) පමණ වේ." },
-  { paperId: 1, id: 116, subject: "SCI", question: "කාබන් වල ප්‍රධාන බහුරූපී (Allotropes) ආකාර දෙකක් වන්නේ?", options: ["දියමන්ති සහ මිනිරන්", "රත්‍රන් සහ රිදී", "යකඩ සහ වානේ", "ප්ලාස්ටික් සහ රබර්"], answer: 0, explanation: "දියමන්ති (Diamond) සහ මිනිරන් (Graphite) යනු කාබන් මූලද්‍රව්‍යයේ එකිනෙකට වෙනස් භෞතික ආකාර දෙකකි." },
-  { paperId: 1, id: 117, subject: "SCI", question: "ඔක්සිජන් වායුව සොයාගත් විද්‍යාඥයා කවුද?", options: ["අයිසැක් නිව්ටන්", "ජෝසප් ප්‍රිස්ට්ලි", "ඇල්බට් අයින්ස්ටයින්", "චාල්ස් ඩාවින්"], answer: 1, explanation: "1774 දී ජෝසප් ප්‍රිස්ට්ලි (Joseph Priestley) විසින් ඔක්සිජන් වායුව නිල වශයෙන් සොයාගන්නා ලදී." },
-  { paperId: 1, id: 118, subject: "SCI", question: "බලයේ (Force) SI ඒකකය කුමක්ද?", options: ["ජූල් (Joule)", "වොට් (Watt)", "නිව්ටන් (Newton)", "පැස්කල් (Pascal)"], answer: 2, explanation: "බලය මනිනු ලබන්නේ ශ්‍රීමත් අයිසැක් නිව්ටන් සිහිවීම පිණිස නම් කළ 'නිව්ටන්' (N) ඒකකයෙනි." },
-  { paperId: 1, id: 119, subject: "SCI", question: "විටමින් C ඌනතාවය නිසා වැළඳෙන රෝගය කුමක්ද?", options: ["බෙරි බෙරි", "ස්කර්වි (Scurvy)", "රිකේට්ස්", "අන්ධභාවය"], answer: 1, explanation: "විටමින් C නොමැතිකම නිසා විදුරුමස් වලින් ලේ ගැලීම සහිත ස්කර්වි රෝගය වැළඳේ." },
-  { paperId: 1, id: 120, subject: "SCI", question: "වායුගෝලයේ වැඩිපුරම අඩංගු වායුව කුමක්ද?", options: ["ඔක්සිජන්", "කාබන් ඩයොක්සයිඩ්", "නයිට්‍රජන්", "ආගන්"], answer: 2, explanation: "පෘථිවි වායුගෝලයෙන් 78% ක් පමණ සමන්විත වන්නේ නයිට්‍රජන් (Nitrogen) වායුවෙනි." },
-  { paperId: 1, id: 121, subject: "SCI", question: "ග්‍රහලෝක සූර්යයා වටා ගමන් කරන්නේ ඉලිප්සාකාර කක්ෂ වල බව සොයාගත්තේ කවුද?", options: ["ගැලීලියෝ ගැලලි", "ජොහැන්නස් කෙප්ලර්", "නිකොලස් කොපර්නිකස්", "එඩ්වින් හබල්"], answer: 1, explanation: "කෙප්ලර්ගේ ග්‍රහලෝක චලිතය පිළිබඳ නියමයන් මගින් මෙය පැහැදිලි කරන ලදී." },
-  { paperId: 1, id: 122, subject: "SCI", question: "යකඩ මලකඩ කෑමේදී සිදුවන රසායනික ක්‍රියාවලිය කුමක්ද?", options: ["අඩුකරණය", "ඔක්සිකරණය (Oxidation)", "විඛාදනය නොවේ", "උත්ප්‍රේරණය"], answer: 1, explanation: "යකඩ, ජලය සහ ඔක්සිජන් සමඟ ප්‍රතික්‍රියා කර යකඩ ඔක්සයිඩ් සෑදීම ඔක්සිකරණ ක්‍රියාවලියකි." },
-  { paperId: 1, id: 123, subject: "SCI", question: "මිනිස් සිරුරේ රුධිරය පොම්ප කරන ප්‍රධාන අවයවය කුමක්ද?", options: ["මොළය", "පෙනහළු", "හෘදය", "වකුගඩු"], answer: 2, explanation: "හෘදය (Heart) මගින් රුධිර සංසරණ පද්ධතිය හරහා මුළු සිරුරටම රුධිරය පොම්ප කරයි." },
-  { paperId: 1, id: 124, subject: "SCI", question: "සූර්යයාගේ සිට පෘථිවියට ආලෝකය පැමිණීමට කොපමණ කාලයක් ගතවේද?", options: ["තත්පර 8 යි", "විනාඩි 8 යි තත්පර 20 යි", "පැය 1 යි", "විනාඩි 1 යි"], answer: 1, explanation: "සූර්ය ආලෝකය පෘථිවියට ළඟා වීමට ආසන්න වශයෙන් විනාඩි 8 යි තත්පර 20 ක් (තත්පර 500ක්) ගතවේ." },
-  { paperId: 1, id: 125, subject: "SCI", question: "අම්ලයක pH අගය පරාසය කුමක්ද?", options: ["7 ට වඩා අඩු", "7", "7 ට වඩා වැඩි", "14"], answer: 0, explanation: "pH මාපකයේ 7 ට වඩා අඩු අගයන් ආම්ලික වන අතර, 7 උදාසීන වේ, 7ට වැඩි අගයන් භාස්මික වේ." },
-  { paperId: 1, id: 126, subject: "SCI", question: "විද්‍යුත් ප්‍රතිරෝධය (Resistance) මනින ඒකකය කුමක්ද?", options: ["වෝල්ට්", "ඇම්පියර්", "ඕම් (Ohm)", "හර්ට්ස්"], answer: 2, explanation: "සන්නායකයක විද්‍යුත් ප්‍රතිරෝධය මැනීම සඳහා 'ඕම්' (Ω) භාවිතා කරයි." },
-  { paperId: 1, id: 127, subject: "SCI", question: "ශාක පත්‍ර කොළ පැහැයෙන් දිස් වීමට හේතු වන වර්ණකය කුමක්ද?", options: ["මෙලනින්", "කැරොටින්", "ක්ලෝරොෆිල් (හරිතප්‍රද)", "සැන්තොෆිල්"], answer: 2, explanation: "ප්‍රභාසංස්ලේෂණයට අවශ්‍ය ආලෝකය උරාගන්නා ක්ලෝරොෆිල් (Chlorophyll) වර්ණකය නිසා පත්‍ර කොළ පැහැ වේ." },
-  { paperId: 1, id: 128, subject: "SCI", question: "සාමාන්‍ය ජලයේ (පිරිසිදු) තාපාංකය සෙල්සියස් අංශක වලින් කොපමණද?", options: ["0 °C", "50 °C", "100 °C", "150 °C"], answer: 2, explanation: "සම්මත වායුගෝලීය පීඩනය යටතේ පිරිසිදු ජලය නටන උෂ්ණත්වය (තාපාංකය) 100 °C වේ." },
-  { paperId: 1, id: 129, subject: "SCI", question: "සෛලයක 'පාලන මධ්‍යස්ථානය' ලෙස සැලකෙන්නේ කුමක්ද?", options: ["රයිබොසෝම", "න්‍යෂ්ටිය (Nucleus)", "සෛල පටලය", "රික්තකය"], answer: 1, explanation: "සෛලයේ සියලුම ක්‍රියාකාරකම් පාලනය කරන්නේ ජාන (DNA) අඩංගු න්‍යෂ්ටිය විසිනි." },
-  { paperId: 1, id: 130, subject: "SCI", question: "පෘථිවියට ආසන්නතම තාරකාව කුමක්ද?", options: ["සීරියස්", "ප්‍රොක්සිමා සෙන්චූරි", "සූර්යයා", "ඇල්ෆා සෙන්චූරි"], answer: 2, explanation: "අපගේ සෞරග්‍රහ මණ්ඩලයේ කේන්ද්‍රය වන සූර්යයා පෘථිවියට ආසන්නතම තාරකාවයි." },
-  { paperId: 1, id: 131, subject: "SCI", question: "බැක්ටීරියා මගින් බෝවන රෝගයක් වන්නේ කුමක්ද?", options: ["ඩෙංගු", "ක්ෂය රෝගය (TB)", "ඒඩ්ස් (AIDS)", "කොවිඩ්-19"], answer: 1, explanation: "ක්ෂය රෝගය (Tuberculosis) යනු 'මයිකොබැක්ටීරියම් ටියුබකියුලෝසිස්' නැමැති බැක්ටීරියාව නිසා හටගන්නා රෝගයකි." },
-  { paperId: 1, id: 132, subject: "SCI", question: "ලෝහයක් නොවන නමුත් විද්‍යුතය සන්නයනය කරන මූලද්‍රව්‍යය කුමක්ද?", options: ["සල්ෆර්", "ផොස්පරස්", "මිනිරන් (Graphite)", "අයඩින්"], answer: 2, explanation: "කාබන් වල බහුරූපී ආකාරයක් වන මිනිරන් යනු විද්‍යුතය හොඳින් සන්නයනය කරන අලෝහයකි." },
-  { paperId: 1, id: 133, subject: "SCI", question: "නිව්ටන්ගේ තුන්වන නියමයට අනුව, සෑම ක්‍රියාවකටම...", options: ["ප්‍රතික්‍රියාවක් නැත", "සමාන හා ප්‍රතිවිරුද්ධ ප්‍රතික්‍රියාවක් ඇත", "කුඩා ප්‍රතික්‍රියාවක් ඇත", "විශාල ප්‍රතික්‍රියාවක් ඇත"], answer: 1, explanation: "ක්‍රියාවට සමාන වූ ද, දිශාවෙන් ප්‍රතිවිරුද්ධ වූ ද ප්‍රතික්‍රියාවක් සෑමවිටම පවතී (Action = -Reaction)." },
-  { paperId: 1, id: 134, subject: "SCI", question: "රුධිරය කැටි ගැසීමට උපකාරී වන රුධිර සෛල වර්ගය කුමක්ද?", options: ["සුදු රුධිර සෛල", "රතු රුධිර සෛල", "රුධිර පට්ටිකා (Platelets)", "ප්ලාස්මාව"], answer: 2, explanation: "තුවාලයක් වූ විට රුධිරය වහනය වීම නතර කිරීම සඳහා රුධිර පට්ටිකා කැටි ගැසීමේ ක්‍රියාවලිය ආරම්භ කරයි." },
-  { paperId: 1, id: 135, subject: "SCI", question: "වායුගෝලීය පීඩනය මැනීමට භාවිතා කරන උපකරණය කුමක්ද?", options: ["උෂ්ණත්වමානය", "වායුපීඩනමානය (Barometer)", "ආර්ද්‍රතාමානය", "ඇනිමෝමීටරය"], answer: 1, explanation: "වායුගෝලීය පීඩනය මැනීම සඳහා බැරෝමීටරය (Barometer) භාවිතා කරනු ලැබේ." },
-  { paperId: 1, id: 136, subject: "SCI", question: "විශ්වයේ වැඩිපුරම දක්නට ලැබෙන පදාර්ථ තත්ත්වය (State of Matter) කුමක්ද?", options: ["ඝන", "ද්‍රව", "වායු", "ප්ලාස්මා (Plasma)"], answer: 3, explanation: "තාරකා සහ සූර්යයා තුළ අතිවිශාල උෂ්ණත්වයක් පවතින බැවින් විශ්වයෙන් 99% කට වඩා ඇත්තේ ප්ලාස්මා තත්ත්වයේය." },
-  { paperId: 1, id: 137, subject: "SCI", question: "මිනිස් ඇසට හඳුනාගත හැකි වර්ණාවලියේ (දෘශ්‍ය ආලෝකයේ) තරංග ආයාමය වැඩිම වර්ණය කුමක්ද?", options: ["නිල්", "කොළ", "කහ", "රතු"], answer: 3, explanation: "දෘශ්‍ය වර්ණාවලියේ රතු ආලෝකයට වැඩිම තරංග ආයාමයක් සහ අඩුම සංඛ්‍යාතයක් පවතී." },
-  { paperId: 1, id: 138, subject: "SCI", question: "පරමාණුවක ධන ආරෝපිත අංශුව කුමක්ද?", options: ["ඉලෙක්ට්‍රෝනය", "නියුට්‍රෝනය", "ප්‍රෝටෝනය", "ෆෝටෝනය"], answer: 2, explanation: "පරමාණුක න්‍යෂ්ටියේ ඇති ප්‍රෝටෝන ධන ආරෝපිත වන අතර, ඉලෙක්ට්‍රෝන සෘණ ආරෝපිත වේ. නියුට්‍රෝන උදාසීන වේ." },
-  { paperId: 1, id: 139, subject: "SCI", question: "ශාක මුල් මගින් උරාගන්නා ජලය පත්‍ර දක්වා ගෙන යන්නේ කුමන පටකය මගින්ද?", options: ["ෆ්ලෝයම", "ශෛලම (Xylem)", "අපිචර්මය", "කැම්බියම"], answer: 1, explanation: "ශෛලම පටකය මගින් ජලය සහ ඛනිජ ලවණ ඉහළට ගෙන යන අතර, ෆ්ලෝයමය මගින් ආහාර පරිවහනය කරයි." },
-  { paperId: 1, id: 140, subject: "SCI", question: "මීතේන් වායුවේ රසායනික සූත්‍රය කුමක්ද?", options: ["CO2", "CH4", "H2O", "NH3"], answer: 1, explanation: "මීතේන් යනු කාබන් පරමාණුවකට හයිඩ්‍රජන් පරමාණු 4ක් සම්බන්ධ වී සෑදුණු සරලතම හයිඩ්‍රොකාබනයයි (CH4)." },
-
-  // --- PAPER 2 ---
-  { paperId: 2, id: 141, subject: "SCI", question: "ද්‍රවයක් වායුවක් බවට පත්වීමේ ක්‍රියාවලිය හඳුන්වන්නේ කුමක් ලෙසද?", options: ["ඝනීභවනය", "වාෂ්පීභවනය", "ද්‍රවීභවනය", "උත්පතනය"], answer: 1, explanation: "තාපය ලබා දීමෙන් ද්‍රවයක් වායු තත්ත්වයට පත්වීම වාෂ්පීභවනය හෝ තාපාංකය ලෙස හැඳින්වේ." },
-  { paperId: 2, id: 142, subject: "SCI", question: "මිනිස් සිරුරේ අඩංගු ක්‍රෝමසෝම යුගල ගණන කොපමණද?", options: ["21", "22", "23", "24"], answer: 2, explanation: "නිරෝගී මිනිස් සෛලයක ක්‍රෝමසෝම යුගල 23 ක් (මුළු ක්‍රෝමසෝම 46 ක්) අඩංගු වේ." },
-  { paperId: 2, id: 143, subject: "SCI", question: "කාබනික රසායනයේ ප්‍රධානතම මූලද්‍රව්‍යය කුමක්ද?", options: ["නයිට්‍රජන්", "කාබන්", "හයිඩ්‍රජන්", "ඔක්සිජන්"], answer: 1, explanation: "සියලුම කාබනික සංයෝගවල පදනම ලෙස කාබන් (C) මූලද්‍රව්‍යය ක්‍රියා කරයි." },
-  { paperId: 2, id: 144, subject: "SCI", question: "විද්‍යුත් චුම්භක ප්‍රේරණය (Electromagnetic Induction) සොයාගත්තේ කවුද?", options: ["මයිකල් ෆැරඩේ", "තෝමස් එඩිසන්", "නිකොලා ටෙස්ලා", "ජෝර්ජ් ඕම්"], answer: 0, explanation: "1831 දී මයිකල් ෆැරඩේ විසින් චුම්භක ක්ෂේත්‍රයක් වෙනස් වීමෙන් විද්‍යුතය නිපදවිය හැකි බව සොයාගන්නා ලදී." },
-  { paperId: 2, id: 145, subject: "SCI", question: "කෘමීන්ගේ ශ්වසන අවයවය කුමක්ද?", options: ["පෙනහළු", "ජලක්ලෝම", "ශ්වාසනාල පද්ධතිය", "සම"], answer: 2, explanation: "කෘමීන් ශ්වසනය කරන්නේ ඔවුන්ගේ දේහය පුරා විහිදී ඇති ශ්වාසනාල (Tracheal system) පද්ධතියක් හරහාය." },
-  { paperId: 2, id: 146, subject: "SCI", question: "ලෝහයේ ඇති තදම (දෘඩම) ස්වභාවික ද්‍රව්‍යය කුමක්ද?", options: ["යකඩ", "දියමන්ති", "ක්වාර්ට්ස්", "ටයිටේනියම්"], answer: 1, explanation: "ස්වභාවිකව හමුවන ද්‍රව්‍ය අතුරින් දෘඩතාවයෙන් වැඩිම ද්‍රව්‍යය දියමන්ති (Diamond) වේ." },
-  { paperId: 2, id: 147, subject: "SCI", question: "පෘථිවි කබොලේ වැඩිපුරම අඩංගු ලෝහය කුමක්ද?", options: ["යකඩ", "ඇලුමිනියම්", "තඹ", "රත්‍රන්"], answer: 1, explanation: "පෘථිවි කබොලේ බහුලවම ඇති මූලද්‍රව්‍යය ඔක්සිජන් වන අතර, බහුලවම ඇති ලෝහය ඇලුමිනියම් වේ." },
-  { paperId: 2, id: 148, subject: "SCI", question: "තාපය මැනීමේ SI ඒකකය කුමක්ද?", options: ["කෙල්වින්", "සෙල්සියස්", "ජූල් (Joule)", "වොට්"], answer: 2, explanation: "තාපය යනු ශක්ති ප්‍රභේදයකි. ශක්තිය මනින SI ඒකකය ජූල් වේ." },
-  { paperId: 2, id: 149, subject: "SCI", question: "පරිනාමවාදය (Theory of Evolution) ලොවට හඳුන්වා දුන් විද්‍යාඥයා කවුද?", options: ["චාල්ස් ඩාවින්", "ග්‍රෙගර් මෙන්ඩල්", "ලුවී පාස්චර්", "ඇලෙක්සැන්ඩර් ෆ්ලෙමින්"], answer: 0, explanation: "1859 දී චාල්ස් ඩාවින් විසින් ස්වභාවික වරණය මත පදනම් වූ පරිනාමවාදය ඉදිරිපත් කරන ලදී." },
-  { paperId: 2, id: 150, subject: "SCI", question: "ග්‍රහලෝකයක් වටා භ්‍රමණය වන ස්වභාවික වස්තූන් හඳුන්වන්නේ?", options: ["උල්කාෂ්ම", "ධූමකේතු", "චන්ද්‍රයන් (උපග්‍රහයින්)", "තාරකා"], answer: 2, explanation: "පෘථිවියට සඳ මෙන්, ග්‍රහලෝක වටා කක්ෂගත වී ඇති වස්තූන් ස්වභාවික උපග්‍රහයින් හෝ චන්ද්‍රයන් ලෙස හැඳින්වේ." },
-  { paperId: 2, id: 151, subject: "SCI", question: "හයිඩ්‍රොක්ලෝරික් අම්ලයේ රසායනික සූත්‍රය කුමක්ද?", options: ["H2SO4", "HNO3", "HCl", "NaCl"], answer: 2, explanation: "හයිඩ්‍රජන් සහ ක්ලෝරීන් එකතුවෙන් සෑදෙන හයිඩ්‍රොක්ලෝරික් අම්ලය HCl ලෙස ලියනු ලැබේ." },
-  { paperId: 2, id: 152, subject: "SCI", question: "මොළයේ ක්‍රියාකාරිත්වය අධ්‍යයනය කරන වෛද්‍ය විද්‍යා ශාඛාව කුමක්ද?", options: ["හෘද විද්‍යාව (Cardiology)", "ස්නායු විද්‍යාව (Neurology)", "චර්ම රෝග විද්‍යාව", "අස්ථි විද්‍යාව"], answer: 1, explanation: "ස්නායු පද්ධතිය සහ මොළය සම්බන්ධ රෝග සහ ක්‍රියාකාරිත්වයන් අධ්‍යයනය කරන්නේ Neurology (ස්නායු විද්‍යාව) මගිනි." },
-  { paperId: 2, id: 153, subject: "SCI", question: "කාචයක නාභිය දුර (f) සහ එහි වක්‍රතා අරය (r) අතර සම්බන්ධය කුමක්ද?", options: ["f = 2r", "f = r/2", "f = r", "f = r²"], answer: 1, explanation: "ගෝලීය දර්පණයක හෝ කාචයක නාභිය දුර එහි වක්‍රතා අරයෙන් අඩකට සමාන වේ (f = r/2)." },
-  { paperId: 2, id: 154, subject: "SCI", question: "වායුගෝලයේ ඕසෝන් ස්ථරය පිහිටා ඇත්තේ කුමන කලාපයේද?", options: ["ට්‍රොපොස්ෆියරය", "ස්ට්‍රැටොස්ෆියරය", "මෙසොස්ෆියරය", "අයනොස්ෆියරය"], answer: 1, explanation: "පාරජම්බුල කිරණ වලින් අපව ආරක්ෂා කරන ඕසෝන් ස්ථරය වැඩිපුරම ඇත්තේ ස්ට්‍රැටොස්ෆියරයේ (Stratosphere) ය." },
-  { paperId: 2, id: 155, subject: "SCI", question: "වෛරස මගින් ඇති නොවන රෝගය කුමක්ද?", options: ["සෙම්ප්‍රතිශ්‍යාව", "ඉන්ෆ්ලුවෙන්සා", "මැලේරියාව", "ඒඩ්ස්"], answer: 2, explanation: "මැලේරියාව යනු 'ප්ලාස්මෝඩියම්' නම් ප්‍රොටෝසෝවාවකු මගින් බෝවන රෝගයක් මිස වෛරසයක් නොවේ." },
-  { paperId: 2, id: 156, subject: "SCI", question: "විද්‍යුත් විච්ඡේදනයේදී (Electrolysis) ධන ඉලෙක්ට්‍රෝඩය හඳුන්වන්නේ කුමක් ලෙසද?", options: ["කැතෝඩය", "ඇනෝඩය", "අයනය", "ඩයෝඩය"], answer: 1, explanation: "බැටරියේ ධන අග්‍රයට සම්බන්ධ කරන ඉලෙක්ට්‍රෝඩය ඇනෝඩය (Anode) වන අතර සෘණ අග්‍රය කැතෝඩය වේ." },
-  { paperId: 2, id: 157, subject: "SCI", question: "සාපේක්ෂතාවාදය (Theory of Relativity) ඉදිරිපත් කළ විද්‍යාඥයා කවුද?", options: ["අයිසැක් නිව්ටන්", "ස්ටීවන් හෝකින්", "ඇල්බට් අයින්ස්ටයින්", "ගැලීලියෝ ගැලලි"], answer: 2, explanation: "E = mc² සමීකරණය සහ සාපේක්ෂතාවාදය ලොවට හඳුන්වා දුන්නේ ඇල්බට් අයින්ස්ටයින් විසිනි." },
-  { paperId: 2, id: 158, subject: "SCI", question: "දුරදක්නය (Telescope) ප්‍රථම වරට තාරකා විද්‍යාත්මක නිරීක්ෂණ සඳහා භාවිතා කළේ කවුද?", options: ["කෙප්ලර්", "නිව්ටන්", "ගැලීලියෝ ගැලලි", "කොපර්නිකස්"], answer: 2, explanation: "1609 දී ගැලීලියෝ විසින් දුරදක්නය වැඩිදියුණු කර රාත්‍රී අහස නිරීක්ෂණය කිරීමට භාවිතා කළේය." },
-  { paperId: 2, id: 159, subject: "SCI", question: "මිනිස් සිරුරේ සීනි මට්ටම පාලනය කරන හෝමෝනය කුමක්ද?", options: ["තයිරොක්සින්", "ඇඩ්‍රිනලින්", "ඉන්සියුලින්", "ටෙස්ටොස්ටෙරෝන්"], answer: 2, explanation: "අග්න්‍යාශයෙන් ශ්‍රාවය වන ඉන්සියුලින් (Insulin) මගින් රුධිරයේ ග්ලූකෝස් මට්ටම පාලනය කරයි." },
-  { paperId: 2, id: 160, subject: "SCI", question: "මූලද්‍රව්‍යයක සමස්ථානික (Isotopes) වල සමාන වන්නේ කුමක්ද?", options: ["ප්‍රෝටෝන ගණන", "නියුට්‍රෝන ගණන", "ස්කන්ධ ක්‍රමාංකය", "භෞතික ගුණ"], answer: 0, explanation: "එකම මූලද්‍රව්‍යයේ පරමාණු බැවින් ඒවායේ ප්‍රෝටෝන ගණන (පරමාණුක ක්‍රමාංකය) සමාන වන අතර නියුට්‍රෝන ගණන වෙනස් වේ." },
-  { paperId: 2, id: 161, subject: "SCI", question: "ශක්තිය විනාශ කළ නොහැකි අතර එය එක් ආකාරයකින් තවත් ආකාරයකට පරිවර්තනය කළ හැකිය. මෙය කවර නියමයද?", options: ["නිව්ටන්ගේ පළමු නියමය", "ශක්ති සංස්ථිති නියමය", "බොයිල්ගේ නියමය", "ආකිමිඩීස් නියමය"], answer: 1, explanation: "මෙය තාපගති විද්‍යාවේ පළමු නියමය හෙවත් ශක්ති සංස්ථිති නියමය (Law of Conservation of Energy) වේ." },
-  { paperId: 2, id: 162, subject: "SCI", question: "පැසීම (Fermentation) ක්‍රියාවලිය සඳහා බහුලව භාවිතා කරන දිලීර වර්ගය කුමක්ද?", options: ["මියුකර්", "යීස්ට්", "පෙනිසිලියම්", "ඇස්පජිලස්"], answer: 1, explanation: "පාන් පිපීමට සහ මත්පැන් නිෂ්පාදනයට යීස්ට් (Yeast) නම් ඒකසෛලික දිලීරය භාවිතා කරයි." },
-  { paperId: 2, id: 163, subject: "SCI", question: "පෘථිවියේ අභ්‍යන්තරම ස්ථරය හඳුන්වන්නේ කුමක් ලෙසද?", options: ["කබොල (Crust)", "ප්‍රාවරණය (Mantle)", "හරය (Core)", "ශිලාගෝලය"], answer: 2, explanation: "අධික උෂ්ණත්වයකින් යුත් පෘථිවියේ මැද කොටස හරය (Core) ලෙස හැඳින්වේ." },
-  { paperId: 2, id: 164, subject: "SCI", question: "ජලයේ ද්‍රාව්‍ය වන විටමින් වර්ගයක් වන්නේ?", options: ["විටමින් A", "විටමින් C", "විටමින් D", "විටමින් E"], answer: 1, explanation: "විටමින් B සහ C ජලයේ දියවන අතර A, D, E, K මේදයේ දියවන විටමින් වේ." },
-  { paperId: 2, id: 165, subject: "SCI", question: "තරංගයක සංඛ්‍යාතය (Frequency) මනින ඒකකය කුමක්ද?", options: ["ඩෙසිබල්", "හර්ට්ස් (Hz)", "වොට්", "මීටර්"], answer: 1, explanation: "තත්පරයක් තුළ සිදුවන කම්පන ගණන සංඛ්‍යාතය වන අතර එය හර්ට්ස් වලින් මනිනු ලැබේ." },
-  { paperId: 2, id: 166, subject: "SCI", question: "වස්තුවක ඝනත්වය ගණනය කරන සූත්‍රය කුමක්ද?", options: ["ස්කන්ධය × පරිමාව", "ස්කන්ධය / පරිමාව", "පරිමාව / ස්කන්ධය", "බලය × වර්ගඵලය"], answer: 1, explanation: "ඝනත්වය (Density) යනු ඒකක පරිමාවක ඇති ස්කන්ධයයි (d = m/v)." },
-  { paperId: 2, id: 167, subject: "SCI", question: "ශාක වල ප්‍රජනක අවයවය කුමක්ද?", options: ["මුල", "කඳ", "පත්‍රය", "මල"], answer: 3, explanation: "සපුෂ්ප ශාක වල ලිංගික ප්‍රජනනය සඳහා හැඩගැසී ඇති අවයවය මල (Flower) යි." },
-  { paperId: 2, id: 168, subject: "SCI", question: "ආවර්තිතා වගුවේ දකුණු පසින්ම ඇති කාණ්ඩය හඳුන්වන්නේ කුමක් ලෙසද?", options: ["ක්ෂාර ලෝහ", "හැලජන", "උච්ච වායු (Noble gases)", "ආන්තරික ලෝහ"], answer: 2, explanation: "හීලියම්, නියොන්, ආගන් වැනි ප්‍රතික්‍රියා නොකරන වායුන් අඩංගු 8 වන කාණ්ඩය උච්ච වායු වේ." },
-  { paperId: 2, id: 169, subject: "SCI", question: "පෙනිසිලින් ප්‍රතිජීවකය (Antibiotic) සොයාගත්තේ කවුද?", options: ["ලුවී පාස්චර්", "ඇලෙක්සැන්ඩර් ෆ්ලෙමින්", "රොබට් හූක්", "එඩ්වඩ් ජෙනර්"], answer: 1, explanation: "1928 දී ඇලෙක්සැන්ඩර් ෆ්ලෙමින් විසින් පෙනිසිලියම් දිලීරයෙන් පළමු ප්‍රතිජීවකය සොයාගන්නා ලදී." },
-  { paperId: 2, id: 170, subject: "SCI", question: "අපගේ මන්දාකිනිය (Galaxy) හඳුන්වන නම කුමක්ද?", options: ["ඇන්ඩ්‍රොමීඩා", "ක්ෂීරපථය (Milky Way)", "ට්‍රයන්ගුලම්", "සෝම්බ්‍රේරෝ"], answer: 1, explanation: "අපගේ සෞරග්‍රහ මණ්ඩලය පිහිටා ඇති මන්දාකිනිය ක්ෂීරපථය ලෙස හැඳින්වේ." },
-  { paperId: 2, id: 171, subject: "SCI", question: "මිනිස් ඇසේ කාචය මත වැටෙන ආලෝක ප්‍රමාණය පාලනය කරන්නේ කුමන කොටස මගින්ද?", options: ["දෘෂ්ටි විතානය", "තාරකාව (Pupil)", "කළු ඉංගිරියාව (Iris)", "ස්වච්ඡය"], answer: 2, explanation: "කළු ඉංගිරියාවේ (Iris) මාංශපේශී සංකෝචනය වීමෙන් තාරකාවේ විශාලත්වය වෙනස් කර ආලෝකය පාලනය කරයි." },
-  { paperId: 2, id: 172, subject: "SCI", question: "අම්ල වැසි ඇතිවීමට ප්‍රධාන වශයෙන් බලපාන වායුන් මොනවාද?", options: ["නයිට්‍රජන් සහ ඔක්සිජන්", "සල්ෆර් ඩයොක්සයිඩ් සහ නයිට්‍රජන් ඔක්සයිඩ", "කාබන් මොනොක්සයිඩ්", "මීතේන් සහ ඕසෝන්"], answer: 1, explanation: "කර්මාන්තශාලා වලින් පිටවන SO2 සහ NO2 ජලය සමඟ ප්‍රතික්‍රියා කර අම්ල වැසි සාදයි." },
-  { paperId: 2, id: 173, subject: "SCI", question: "කාමර උෂ්ණත්වයේදී ද්‍රවයක් ලෙස පවතින එකම ලෝහය කුමක්ද?", options: ["රන්", "රසදිය (Mercury)", "සෝඩියම්", "ගැලියම්"], answer: 1, explanation: "රසදිය (Hg) යනු සම්මත උෂ්ණත්වයේදී හා පීඩනයේදී ද්‍රව තත්ත්වයේ පවතින එකම ලෝහයයි." },
-  { paperId: 2, id: 174, subject: "SCI", question: "තරඟකාරී නිශේධනය (Competitive Inhibition) අදාළ වන්නේ කවරකටද?", options: ["ප්‍රභාසංස්ලේෂණයට", "එන්සයිම ක්‍රියාකාරිත්වයට", "රුධිර සංසරණයට", "ස්නායු ආවේග ගමනට"], answer: 1, explanation: "උපස්ථරයට සමාන හැඩයක් ඇති නිශේධකයක් එන්සයිමයේ සක්‍රීය ස්ථානයට බැඳීම මෙයින් අදහස් වේ." },
-  { paperId: 2, id: 175, subject: "SCI", question: "භූමිකම්පා වල තීව්‍රතාවය මැනීමට භාවිතා කරන පරිමාණය කුමක්ද?", options: ["රික්ටර් පරිමාණය", "කෙල්වින් පරිමාණය", "ඩෙසිබල් පරිමාණය", "මොහ්ස් පරිමාණය"], answer: 0, explanation: "භූමිකම්පාවකින් නිකුත් වන ශක්තිය මැනීම සඳහා රික්ටර් (Richter) පරිමාණය භාවිතා කරයි." },
-  { paperId: 2, id: 176, subject: "SCI", question: "කිරි වල අඩංගු ප්‍රධාන සීනි වර්ගය කුමක්ද?", options: ["ග්ලූකෝස්", "ෆ්‍රක්ටෝස්", "ලැක්ටෝස්", "සුක්‍රෝස්"], answer: 2, explanation: "කිරි සහ කිරි ආශ්‍රිත නිෂ්පාදන වල බහුලව අඩංගු වන්නේ ලැක්ටෝස් (Lactose) නම් ද්විසැකරයිඩයයි." },
-  { paperId: 2, id: 177, subject: "SCI", question: "ද්විත්ව හෙලික්ස (Double Helix) ආකෘතියක් ඇත්තේ කුමකටද?", options: ["ප්‍රෝටීන වලට", "DNA අණුවට", "RNA අණුවට", "ලිපිඩ වලට"], answer: 1, explanation: "වොට්සන් සහ ක්‍රික් විසින් සොයාගන්නා ලද පරිදි DNA අණුව ද්විත්ව හෙලික්ස හැඩයක් ගනී." },
-  { paperId: 2, id: 178, subject: "SCI", question: "වස්තුවක ගම්‍යතාවය (Momentum) වෙනස් වීමේ සීඝ්‍රතාව සමාන වන්නේ කුමකටද?", options: ["ප්‍රවේගයට", "ත්වරණයට", "යොදන ලද බලයට", "ස්කන්ධයට"], answer: 2, explanation: "නිව්ටන්ගේ දෙවන නියමයට අනුව, ගම්‍යතා වෙනස්වීමේ සීඝ්‍රතාවය වස්තුව මත යොදන සම්ප්‍රයුක්ත බලයට අනුලෝමව සමානුපාතික වේ (F = ma)." },
-  { paperId: 2, id: 179, subject: "SCI", question: "එකිනෙකට වෙනස් ලෝහ දෙකක් මිශ්‍ර කර සාදාගන්නා ද්‍රව්‍යය කුමක්ද?", options: ["සමස්ථානිකය", "ලවණය", "මිශ්‍ර ලෝහය (Alloy)", "බහුඅවයවිකය"], answer: 2, explanation: "ලෝහයක ගුණ වැඩිදියුණු කිරීම සඳහා තවත් ලෝහයක් හෝ අලෝහයක් මිශ්‍ර කිරීමෙන් මිශ්‍ර ලෝහ (උදා: වානේ, පිත්තල) සාදනු ලැබේ." },
-  { paperId: 2, id: 180, subject: "SCI", question: "මිනිස් සිරුරේ විශාලතම ග්‍රන්ථිය කුමක්ද?", options: ["තයිරොයිඩ් ග්‍රන්ථිය", "අක්මාව (Liver)", "අග්න්‍යාශය", "පිටියුටරි ග්‍රන්ථිය"], answer: 1, explanation: "උදර කුහරයේ දකුණු පසින් පිහිටා ඇති අක්මාව මිනිස් සිරුරේ ඇති විශාලතම අභ්‍යන්තර අවයවය මෙන්ම ග්‍රන්ථියද වේ." },
-
-  // --- PAPER 3 ---
-  { paperId: 3, id: 301, subject: "SCI", question: "සරල අවලම්භයක ආවර්ත කාලය රඳා පවතින්නේ කුමක් මතද?", options: ["අවලම්භයේ ස්කන්ධය", "අවලම්භයේ දිග", "ආවරණයේ වර්ණය", "කම්පන විස්තාරය"], answer: 1, explanation: "සරල අවලම්භයක ආවර්ත කාලය රඳා පවතින්නේ එහි දිග සහ ගුරුත්වාකර්ෂණ ත්වරණය මත පමණි." },
-  { paperId: 3, id: 302, subject: "SCI", question: "ස්වයංපෝෂී ජීවියෙකුට උදාහරණයක් වන්නේ කුමක්ද?", options: ["හතු", "හරිත ශාක", "මිනිසා", "කෘමීන්"], answer: 1, explanation: "ආලෝකය භාවිතා කර තම ආහාර තමන් විසින්ම නිපදවා ගන්නා හරිත ශාක ස්වයංපෝෂීන් වේ." },
-  { paperId: 3, id: 303, subject: "SCI", question: "පෘථිවිය මතුපිට නිදහසේ වැටෙන වස්තුවක ත්වරණය කුමක්ද?", options: ["ශුන්‍ය වේ", "නියත වේ", "කාලයත් සමඟ වෙනස් වේ", "ස්කන්ධය මත රඳා පවතී"], answer: 1, explanation: "නිදහසේ වැටෙන වස්තුවකට නියත ගුරුත්වාකර්ෂණ ත්වරණයක් (g) පවතී." },
-  { paperId: 3, id: 304, subject: "SCI", question: "විද්‍යුත් විච්ඡේදනයේදී කැතෝඩය වෙත ගමන් කරන්නේ කුමන අයනද?", options: ["කැටායන (+)", "ඇනායන (-)", "උදාසීන පරමාණු", "ඉලෙක්ට්‍රෝන"], answer: 0, explanation: "කැතෝඩය සෘණ ආරෝපිත බැවින් ධන ආරෝපිත කැටායන ඒ වෙත ආකර්ෂණය වේ." },
-  { paperId: 3, id: 305, subject: "SCI", question: "ජලභීතිකාව (Rabies) රෝගය සම්ප්‍රේෂණය වන්නේ ප්‍රධාන වශයෙන් කුමන සතෙකුගෙන්ද?", options: ["මදුරුවා", "බල්ලා", "මීයා", "ගවයා"], answer: 1, explanation: "බොහෝවිට රෝගී බල්ලෙකු සපා කෑමෙන් ජලභීතිකා වෛරසය මිනිසාට සම්ප්‍රේෂණය වේ." },
-  { paperId: 3, id: 306, subject: "SCI", question: "මිනිස් සිරුරේ අඩංගු ජල ප්‍රතිශතය දළ වශයෙන් කොපමණද?", options: ["40%", "60%", "90%", "20%"], answer: 1, explanation: "වැඩිහිටි මිනිස් සිරුරේ බරින් 60% ක් පමණ ඇත්තේ ජලයයි." },
-  { paperId: 3, id: 307, subject: "SCI", question: "චුම්භකයකට ආකර්ෂණය නොවන ලෝහය කුමක්ද?", options: ["යකඩ", "නිකල්", "ඇලුමිනියම්", "කොබෝල්ට්"], answer: 2, explanation: "යකඩ, නිකල් සහ කොබෝල්ට් චුම්භක ද්‍රව්‍ය වන අතර ඇලුමිනියම් චුම්භකයකට ආකර්ෂණය නොවේ." },
-  { paperId: 3, id: 308, subject: "SCI", question: "මූලද්‍රව්‍යයක ලක්ෂණ පෙන්වන කුඩාම අංශුව කුමක්ද?", options: ["අණුව", "අයනය", "පරමාණුව", "මිශ්‍රණය"], answer: 2, explanation: "රසායනික මූලද්‍රව්‍යයක සියලු ලක්ෂණ රඳවාගෙන ඇති කුඩාම අංශුව පරමාණුවයි." },
-  { paperId: 3, id: 309, subject: "SCI", question: "ගුරුත්වාකර්ෂණ බලය මුලින්ම ගණිතමය ලෙස විස්තර කළේ කවුද?", options: ["ගැලීලියෝ", "අයින්ස්ටයින්", "අයිසැක් නිව්ටන්", "ආකිමිඩීස්"], answer: 2, explanation: "අයිසැක් නිව්ටන් විසින් විශ්ව ගුරුත්වාකර්ෂණ නියමය ලොවට හඳුන්වා දුන්නේය." },
-  { paperId: 3, id: 310, subject: "SCI", question: "පැළෑටි වලට අවශ්‍ය නයිට්‍රජන් වායුව ලබා ගන්නේ කෙසේද?", options: ["පත්‍ර හරහා වාතයෙන්", "මුල් හරහා පසෙන් නයිට්‍රේට ලෙස", "කඳ හරහා", "සූර්යාලෝකයෙන්"], answer: 1, explanation: "වාතයේ නයිට්‍රජන් ඇතත් ශාක වලට එය සෘජුවම ගත නොහැකි නිසා පසෙහි ඇති නයිට්‍රේට ලවණ ලෙස මුල් හරහා ලබාගනී." },
-  { paperId: 3, id: 311, subject: "SCI", question: "දෘශ්‍ය ආලෝකයේ මූලික වර්ණ (Primary Colors) තුන කුමක්ද?", options: ["රතු, කොළ, නිල්", "රතු, කහ, නිල්", "කොළ, කහ, සුදු", "කළු, සුදු, අළු"], answer: 0, explanation: "ආලෝකයේ මූලික වර්ණ (RGB) රතු, කොළ සහ නිල් වේ." },
-  { paperId: 3, id: 312, subject: "SCI", question: "DNA අණුවක අඩංගු නයිට්‍රජනීය භෂ්ම වර්ගයක් නොවන්නේ?", options: ["ඇඩිනීන්", "තයිමීන්", "යුරැසිල්", "සයිටොසීන්"], answer: 2, explanation: "යුරැසිල් (Uracil) දක්නට ලැබෙන්නේ RNA වල පමණි. DNA වල ඇත්තේ තයිමීන්‍ ය." },
-  { paperId: 3, id: 313, subject: "SCI", question: "ඔක්සිකරණය යනු කුමක්ද?", options: ["ඉලෙක්ට්‍රෝන ලබා ගැනීමයි", "ඔක්සිජන් ඉවත් වීමයි", "ඉලෙක්ට්‍රෝන පිටකිරීමයි", "හයිඩ්‍රජන් එකතු වීමයි"], answer: 2, explanation: "රසායනික ප්‍රතික්‍රියාවකදී යම් ප්‍රභේදයක් ඉලෙක්ට්‍රෝන පිටකිරීම ඔක්සිකරණයයි." },
-  { paperId: 3, id: 314, subject: "SCI", question: "හඬක් ප්‍රතිරාවය (Echo) වීමට නම් පරාවර්තක පෘෂ්ඨය කොපමණ දුරකින් තිබිය යුතුද?", options: ["17 m", "10 m", "34 m", "5 m"], answer: 0, explanation: "හඬත් එහි ප්‍රතිරාවයත් වෙන්කර හඳුනාගැනීමට අවම වශයෙන් මීටර් 17 ක දුරක් තිබිය යුතුය." },
-  { paperId: 3, id: 315, subject: "SCI", question: "ඇස්කෝබික් අම්ලය (Ascorbic Acid) ලෙස හඳුන්වන්නේ කුමන විටමිනයද?", options: ["විටමින් A", "විටමින් B12", "විටමින් C", "විටමින් D"], answer: 2, explanation: "විටමින් C හි රසායනික නාමය ඇස්කෝබික් අම්ලය වේ." },
-  { paperId: 3, id: 316, subject: "SCI", question: "පෘථිවිය මතුපිට වැඩිපුරම ඇති ඛනිජය කුමක්ද?", options: ["ක්වාර්ට්ස්", "ෆෙල්ඩ්ස්පාර්", "මයිකා", "කැල්සයිට්"], answer: 1, explanation: "පෘථිවි කබොලෙන් 60% කට වඩා සමන්විත වන්නේ ෆෙල්ඩ්ස්පාර් (Feldspar) ඛනිජයෙනි." },
-  { paperId: 3, id: 317, subject: "SCI", question: "ඉලෙක්ට්‍රෝනය සොයාගත් විද්‍යාඥයා කවුද?", options: ["අර්නස්ට් රදර්ෆර්ඩ්", "J.J. තොම්සන්", "ජේම්ස් චැඩ්වික්", "නීල්ස් බෝර්"], answer: 1, explanation: "1897 දී J.J. තොම්සන් විසින් ඉලෙක්ට්‍රෝනය සොයාගන්නා ලදී." },
-  { paperId: 3, id: 318, subject: "SCI", question: "සෛල බෙදීමේදී වර්ණදේහ දෙපසට අදින්නේ කුමන අවධියේදීද?", options: ["ප්‍රාක්කලාපය", "වියෝගකලාපය (Anaphase)", "අන්තකලාපය", "අන්තර්කලාපය"], answer: 1, explanation: "අනූනන සෛල විභාජනයේ වියෝගකලාපයේදී (Anaphase) ක්‍රෝමැටිඩ දෙපසට ඇදීම සිදුවේ." },
-  { paperId: 3, id: 319, subject: "SCI", question: "ශක්තිය මැනීමට භාවිතා කරන කැලරි (Calorie) ඒකකයක් ජූල් (Joule) කොපමණකට සමානද?", options: ["1 J", "4.18 J", "100 J", "10 J"], answer: 1, explanation: "එක් කැලරියක් දළ වශයෙන් ජූල් 4.18 කට සමාන වේ." },
-  { paperId: 3, id: 320, subject: "SCI", question: "මිනිස් ඇසේ සුදු පැහැති පිටත ආවරණය කුමක්ද?", options: ["ස්වච්ඡය", "දෘෂ්ටි විතානය", "ඝනස්තරය (Sclera)", "කාචය"], answer: 2, explanation: "ඇස ආරක්ෂා කරන පිටත ඇති සුදු පැහැති ඝන ආවරණය ඝනස්තරයයි." },
-  { paperId: 3, id: 321, subject: "SCI", question: "ගින්දර නිවීමට බහුලව භාවිතා කරන වායුව කුමක්ද?", options: ["ඔක්සිජන්", "කාබන් ඩයොක්සයිඩ්", "හයිඩ්‍රජන්", "හීලියම්"], answer: 1, explanation: "කාබන් ඩයොක්සයිඩ් (CO2) වායුව දහනයට ආධාර නොකරන අතර ඔක්සිජන් සැපයුම අවහිර කරයි." },
-  { paperId: 3, id: 322, subject: "SCI", question: "පැස්කල් (Pascal) යනු කුමක් මනින ඒකකයද?", options: ["බලය", "පීඩනය", "ශක්තිය", "වේගය"], answer: 1, explanation: "වර්ග මීටරයකට නිව්ටන් එකක බලයක් යෙදූ විට පීඩනය පැස්කල් 1 කි." },
-  { paperId: 3, id: 323, subject: "SCI", question: "ආමාශය තුළ ප්‍රෝටීන ජීර්ණය සඳහා ස්‍රාවය වන එන්සයිමය කුමක්ද?", options: ["ඇමයිලේස්", "ලයිපේස්", "පෙප්සින්", "රෙනින්"], answer: 2, explanation: "ආමාශයික යුෂයේ අඩංගු පෙප්සින් මගින් ප්‍රෝටීන පොලිපෙප්ටයිඩ බවට බිඳ හෙලයි." },
-  { paperId: 3, id: 324, subject: "SCI", question: "යකඩ වල රසායනික සංකේතය කුමක්ද?", options: ["I", "Ir", "Fe", "F"], answer: 2, explanation: "යකඩ වල ලතින් නාමය 'Ferrum' වන බැවින් සංකේතය Fe වේ." },
-  { paperId: 3, id: 325, subject: "SCI", question: "ශබ්දයේ වේගය වැඩිම කුමන මාධ්‍යය තුළද?", options: ["රික්තය", "වාතය", "ජලය", "වානේ (ඝන)"], answer: 3, explanation: "අංශු එකිනෙකට ළඟින් පිහිටන ඝන ද්‍රව්‍ය තුළින් ශබ්දය වඩාත් වේගයෙන් ගමන් කරයි." },
-  { paperId: 3, id: 326, subject: "SCI", question: "මැලේරියාව රෝගය සම්ප්‍රේෂණය කරන මදුරුවා කවුද?", options: ["ඊඩිස් ගැහැණු මදුරුවා", "ඇනොෆිලස් ගැහැණු මදුරුවා", "කියුලෙක්ස් මදුරුවා", "මානිසෝනියා මදුරුවා"], answer: 1, explanation: "ප්ලාස්මෝඩියම් පරපෝෂිතයා මිනිසාට සම්ප්‍රේෂණය කරන්නේ ඇනොෆිලස් ගැහැණු මදුරුවා මගිනි." },
-  { paperId: 3, id: 327, subject: "SCI", question: "පරිගණකයේ 'මොළය' ලෙස සැලකෙන ප්‍රධාන උපාංගය කුමක්ද?", options: ["RAM", "මවු පුවරුව", "මධ්‍යම සැකසුම් ඒකකය (CPU)", "දෘඩ තැටිය"], answer: 2, explanation: "පරිගණකයේ සියලුම ගණනය කිරීම් සහ තීරණ ගැනීම් සිදු කරන්නේ CPU එක මගිනි." },
-  { paperId: 3, id: 328, subject: "SCI", question: "ඕසෝන් අණුවක (O3) ඇති ඔක්සිජන් පරමාණු ගණන?", options: ["1", "2", "3", "4"], answer: 2, explanation: "ඕසෝන් යනු ඔක්සිජන් පරමාණු 3 ක් එකතු වී සෑදෙන වායුවකි." },
-  { paperId: 3, id: 329, subject: "SCI", question: "දේදුන්නක් සෑදීමට මූලික වන ප්‍රකාශ සංසිද්ධිය කුමක්ද?", options: ["පරාවර්තනය", "විවර්තනය", "වර්තනය සහ අපකිරණය", "ධ්‍රැවණය"], answer: 2, explanation: "ජල බිඳිති තුළින් ආලෝකය ගමන් කිරීමේදී වර්තනය සහ පූර්ණ අභ්‍යන්තර පරාවර්තනය වී වර්ණ වලට අපකිරණය වේ." },
-  { paperId: 3, id: 330, subject: "SCI", question: "ජාන විද්‍යාවේ පියා ලෙස සැලකෙන්නේ කවුද?", options: ["චාල්ස් ඩාවින්", "ග්‍රෙගර් මෙන්ඩල්", "රොබට් හූක්", "ලුවී පාස්චර්"], answer: 1, explanation: "මෑ ඇට ශාක යොදාගෙන කළ පරීක්ෂණ මගින් ග්‍රෙගර් මෙන්ඩල් ජාන විද්‍යාවේ මූලධර්ම සොයාගත්තේය." },
-  { paperId: 3, id: 331, subject: "SCI", question: "වොට් (Watt) යනු කුමක් මනින ඒකකයද?", options: ["විද්‍යුත් ධාරාව", "විභව අන්තරය", "ක්ෂමතාව (Power)", "ප්‍රතිරෝධය"], answer: 2, explanation: "කාර්යය කිරීමේ සීඝ්‍රතාවය හෙවත් ක්ෂමතාවය මනින්නේ වොට් (W) වලිනි." },
-  { paperId: 3, id: 332, subject: "SCI", question: "මිනිස් හෘදයේ කුටීර කීයක් තිබේද?", options: ["2", "3", "4", "5"], answer: 2, explanation: "මිනිස් හෘදයේ කර්ණිකා 2 ක් සහ කෝෂිකා 2 ක් ලෙස කුටීර 4 ක් ඇත." },
-  { paperId: 3, id: 333, subject: "SCI", question: "ලෝකයේ ඇති සැහැල්ලුම ලෝහය කුමක්ද?", options: ["ඇලුමිනියම්", "ලිතියම්", "ටයිටේනියම්", "රසදිය"], answer: 1, explanation: "ලිතියම් (Li) යනු ඝනත්වය අඩුම සහ සැහැල්ලුම ඝන ලෝහයයි." },
-  { paperId: 3, id: 334, subject: "SCI", question: "සූර්යයාගේ ශක්තිය නිපදවෙන ප්‍රධාන න්‍යෂ්ටික ප්‍රතික්‍රියාව කුමක්ද?", options: ["න්‍යෂ්ටික විඛණ්ඩනය", "න්‍යෂ්ටික විලයනය", "රසායනික දහනය", "විකිරණශීලී ක්ෂය වීම"], answer: 1, explanation: "හයිඩ්‍රජන් පරමාණු එකතු වී හීලියම් සෑදීමේ න්‍යෂ්ටික විලයන (Fusion) ක්‍රියාවලියෙන් ශක්තිය නිපදවේ." },
-  { paperId: 3, id: 335, subject: "SCI", question: "ක්ෂුද්‍ර ජීවීන් සොයාගත් විද්‍යාඥයා කවුද?", options: ["ඇන්ටන් වෑන් ලීවන්හුක්", "රොබට් කොක්", "ඇලෙක්සැන්ඩර් ෆ්ලෙමින්", "එඩ්වඩ් ජෙනර්"], answer: 0, explanation: "ඔහු විසින් නිර්මාණය කළ සරල අන්වීක්ෂයෙන් ප්‍රථම වරට ක්ෂුද්‍ර ජීවීන් නිරීක්ෂණය කරන ලදී." },
-  { paperId: 3, id: 336, subject: "SCI", question: "ක්ෂාරීය ද්‍රාවණයක pH අගය කොපමණද?", options: ["7", "7 ට වඩා අඩු", "7 ට වඩා වැඩි", "0"], answer: 2, explanation: "pH අගය 7 ට වඩා වැඩි ද්‍රාවණ ක්ෂාරීය (භාස්මික) ද්‍රාවණ වේ." },
-  { paperId: 3, id: 337, subject: "SCI", question: "ගුරුත්වාකර්ෂණ තරංග (Gravitational Waves) මුලින්ම පුරෝකථනය කළේ කවුද?", options: ["නිව්ටන්", "අයින්ස්ටයින්", "හෝකින්", "කෙප්ලර්"], answer: 1, explanation: "ඇල්බට් අයින්ස්ටයින් සිය සාමාන්‍ය සාපේක්ෂතාවාදය හරහා 1916 දී මෙය පුරෝකථනය කළේය." },
-  { paperId: 3, id: 338, subject: "SCI", question: "ශාක වලට ආලෝකය දෙසට නැමීමේ ලක්ෂණය හඳුන්වන්නේ?", options: ["ගුරුත්වාවර්තනය", "ප්‍රභාසංස්ලේෂණය", "ප්‍රභාවර්තනය", "ස්පර්ශාවර්තනය"], answer: 2, explanation: "ආලෝකය උත්තේජකයක් ලෙස ගෙන ශාක කොටස් වර්ධනය වීම ප්‍රභාවර්තනයයි." },
-  { paperId: 3, id: 339, subject: "SCI", question: "රසායනික වෙනසකට (Chemical Change) උදාහරණයක් වන්නේ?", options: ["අයිස් දියවීම", "වීදුරුවක් කැඩීම", "දැව දහනය වීම", "ජලය වාෂ්ප වීම"], answer: 2, explanation: "දහනයේදී මුල් ද්‍රව්‍යය වෙනස් වී අලුත් රසායනික සංයෝගයක් (අළු/වායු) සෑදේ." },
-  { paperId: 3, id: 340, subject: "SCI", question: "පෘථිවි චුම්භක ක්ෂේත්‍රය නිපදවීමට හේතු වන පෘථිවි ස්තරය කුමක්ද?", options: ["පිටත හරය (ද්‍රව ලෝහ)", "ඇතුළත හරය (ඝන යකඩ)", "ප්‍රාවරණය", "කබොල"], answer: 0, explanation: "පෘථිවියේ පිටත හරයේ ඇති ද්‍රව යකඩ හා නිකල් වල චලනය නිසා චුම්භක ක්ෂේත්‍රය හටගනී." }
-];
-
-// Generate the remaining PRO Levels for Science up to 40
-const scienceProLevels = Array.from({length: 40}, (_, i) => ({
-  paperId: `H${i+1}`, 
-  id: 4001 + i, 
-  subject: "SCI-PRO", 
-  question: `මෙම විද්‍යා අභියෝගය ජයගැනීමට නිවැරදි පිළිතුර තෝරන්න. (Advanced Science Challenge ${i+1})`, 
-  options: ["වැරදි පිළිතුරක්", "නිවැරදි පිළිතුර", "තවත් වැරදි එකක්", "මෙයත් වැරදියි"], 
-  answer: 1, 
-  explanation: `ඔබ මෙම අභියෝගය සාර්ථකව අවසන් කළා!`
-}));
-// Override first few 
-scienceProLevels[0] = { paperId: 'H1', id: 4001, subject: "SCI", question: "කළු කුහරයක (Black Hole) 'සිදුවීම් ක්ෂිතිජය' (Event Horizon) යනු කුමක්ද?", options: ["එහි කේන්ද්‍රය", "ආලෝකයට පවා ගැලවිය නොහැකි සීමාව", "එය වටා ඇති තරු පද්ධතිය", "එහි උෂ්ණත්වය උපරිම වන ස්ථානය"], answer: 1, explanation: "සිදුවීම් ක්ෂිතිජය යනු කළු කුහරයේ ගුරුත්වාකර්ෂණය කොතරම් ප්‍රබලද යත් ආලෝකයට පවා ඉන් ගැලවිය නොහැකි සීමාවයි." };
-scienceProLevels[1] = { paperId: 'H2', id: 4002, subject: "SCI", question: "ක්වොන්ටම් භෞතිකයේ 'Quantum Entanglement' යන්නෙන් අදහස් වන්නේ?", options: ["අංශු දෙකක් ගැටීම", "දුර නොසලකා අංශු දෙකක් අතර ඇතිවන ක්ෂණික අන්තර්ක්‍රියාව", "ආලෝකයේ වේගය ඉක්මවා යාම", "පරමාණුක න්‍යෂ්ටි බිඳ වැටීම"], answer: 1, explanation: "එක් අංශුවක තත්ත්වය වෙනස් වන විට, කෙතරම් දුරකින් වුවද අනෙක් අංශුවද ඊට අනුරූපව ක්ෂණිකව වෙනස් වීමයි." };
-scienceProLevels[2] = { paperId: 'H3', id: 4003, subject: "SCI", question: "CRISPR-Cas9 තාක්ෂණය මූලිකව භාවිතා වන්නේ කුමක් සඳහාද?", options: ["නව මූලද්‍රව්‍ය සෑදීමට", "ජාන සංස්කරණයට (Gene Editing)", "අභ්‍යවකාශ ගවේෂණයට", "සුපිරි පරිගණක සැදීමට"], answer: 1, explanation: "CRISPR යනු ජීවීන්ගේ DNA ඉතා නිවැරදිව කපා ඉවත් කිරීමට හෝ වෙනස් කිරීමට භාවිතා කරන ජාන සංස්කරණ තාක්ෂණයකි." };
-
-const fullScienceBank = [...scienceQuestionBank, ...scienceProLevels];
-
-
-// ==========================================
-// 3. GRADE 5 SCHOLARSHIP BANK
-// ==========================================
-const grade5QuestionBank = [
-  // --- PAPER 1 (40 Questions) ---
-  { paperId: 1, id: 501, subject: "G5", question: "ශ්‍රී ලංකාවේ ජාතික පුෂ්පය කුමක්ද?", options: ["නිල් මානෙල්", "පිච්ච", "නෙළුම්", "රෝස"], answer: 0, explanation: "ශ්‍රී ලංකාවේ ජාතික පුෂ්පය නිල් මානෙල් මලයි." },
-  { paperId: 1, id: 502, subject: "G5", question: "දළදා මාලිගාව පිහිටි නගරය කුමක්ද?", options: ["කොළඹ", "මහනුවර", "ගාල්ල", "අනුරාධපුරය"], answer: 1, explanation: "ශ්‍රී දළදා මාලිගාව මහනුවර නගරයේ පිහිටා ඇත." },
-  { paperId: 1, id: 503, subject: "G5", question: "අපේ ජාතික පක්ෂියා කවුද?", options: ["මොනරා", "වළිකුකුළා", "ගිරවා", "මයිනා"], answer: 1, explanation: "ශ්‍රී ලංකා ජාතික පක්ෂියා වළිකුකුළා වේ." },
-  { paperId: 1, id: 504, subject: "G5", question: "1 කිලෝමීටරයකට මීටර් කීයක් තිබේද?", options: ["100", "1000", "10", "10000"], answer: 1, explanation: "එක් කිලෝමීටරයක් යනු මීටර් 1000 කි." },
-  { paperId: 1, id: 505, subject: "G5", question: "ශ්‍රී ලංකාවේ ප්‍රථම විධායක ජනාධිපතිවරයා කවුද?", options: ["ඩී. එස්. සේනානායක", "ජේ. ආර්. ජයවර්ධන", "විලියම් ගොපල්ලව", "මහින්ද රාජපක්ෂ"], answer: 1, explanation: "1978 දී ජේ. ආර්. ජයවර්ධන මහතා ප්‍රථම විධායක ජනාධිපති විය." },
-  { paperId: 1, id: 506, subject: "G5", question: "5 x 8 හි අගය කීයද?", options: ["35", "40", "45", "50"], answer: 1, explanation: "5 වරක් 8 යනු 40 කි." },
-  { paperId: 1, id: 507, subject: "G5", question: "ශ්‍රී ලංකාවේ ජාතික වෘක්ෂය කුමක්ද?", options: ["බෝ", "නා", "පොල්", "අඹ"], answer: 1, explanation: "ශ්‍රී ලංකාවේ ජාතික වෘක්ෂය නා (නාග) ගසයි." },
-  { paperId: 1, id: 508, subject: "G5", question: "ඉර පායන දිශාව කුමක්ද?", options: ["බස්නාහිර", "නැගෙනහිර", "උතුර", "දකුණ"], answer: 1, explanation: "සූර්යයා උදෑසන නැගෙනහිර දිශාවෙන් පායයි." },
-  { paperId: 1, id: 509, subject: "G5", question: "රුවන්වැලිසෑය ඉදිකළ රජතුමා කවුද?", options: ["දුටුගැමුණු රජතුමා", "දේවානම්පියතිස්ස රජතුමා", "වළගම්බා රජතුමා", "පරාක්‍රමබාහු රජතුමා"], answer: 0, explanation: "රුවන්වැලි මහා සෑය දුටුගැමුණු රජතුමා විසින් ඉදිකරන ලදී." },
-  { paperId: 1, id: 510, subject: "G5", question: "කිරි වල අඩංගු ප්‍රධාන පෝෂකය කුමක්ද?", options: ["යකඩ", "කැල්සියම්", "විටමින් C", "කාබෝහයිඩ්‍රේට්"], answer: 1, explanation: "අස්ථි හා දත් වර්ධනයට අවශ්‍ය කැල්සියම් කිරි වල බහුලව ඇත." },
-  { paperId: 1, id: 511, subject: "G5", question: "ශ්‍රී ලංකාවේ දිගම ගඟ කුමක්ද?", options: ["කැළණි ගඟ", "වළවේ ගඟ", "මහවැලි ගඟ", "කළු ගඟ"], answer: 2, explanation: "කිලෝමීටර් 335ක් දිග මහවැලි ගඟ ලංකාවේ දිගම ගඟයි." },
-  { paperId: 1, id: 512, subject: "G5", question: "25 + 17 හි අගය කීයද?", options: ["32", "42", "45", "52"], answer: 1, explanation: "25 සහ 17 එකතු කළ විට 42 ලැබේ." },
-  { paperId: 1, id: 513, subject: "G5", question: "ජාතික ගීය රචනා කළේ කවුද?", options: ["පණ්ඩිත අමරදේව", "ආනන්ද සමරකෝන්", "මහගම සේකර", "කුමාරතුංග මුනිදාස"], answer: 1, explanation: "ශ්‍රී ලංකා මාතා ජාතික ගීය ආනන්ද සමරකෝන් මහතා විසින් රචනා කරන ලදී." },
-  { paperId: 1, id: 514, subject: "G5", question: "පෘථිවියේ එකම ස්වභාවික උපග්‍රහයා කවුද?", options: ["ඉරු", "සඳු", "අඟහරු", "තරු"], answer: 1, explanation: "පෘථිවිය වටා භ්‍රමණය වන එකම ස්වභාවික උපග්‍රහයා චන්ද්‍රයා (සඳ) ය." },
-  { paperId: 1, id: 515, subject: "G5", question: "මිනිස් සිරුරේ ඇති සංවේදී අවයව (ඉන්ද්‍රියන්) ගණන කීයද?", options: ["3", "4", "5", "6"], answer: 2, explanation: "ඇස, කන, නාසය, දිව සහ සම යනුවෙන් සංවේදී ඉන්ද්‍රියන් 5ක් ඇත." },
-  { paperId: 1, id: 516, subject: "G5", question: "රැයක් හා දවාලක් ඇතිවීමට හේතුව කුමක්ද?", options: ["පෘථිවිය සූර්යයා වටා යාම", "පෘථිවිය තමා වටා කැරකීම", "සඳ පෘථිවිය වටා යාම", "වලාකුළු"], answer: 1, explanation: "පෘථිවිය සිය අක්ෂය වටා භ්‍රමණය වීම නිසා රෑ දාවල් ඇතිවේ." },
-  { paperId: 1, id: 517, subject: "G5", question: "100 න් 35 ක් අඩු කළ විට පිළිතුර?", options: ["55", "65", "75", "45"], answer: 1, explanation: "100 - 35 = 65." },
-  { paperId: 1, id: 518, subject: "G5", question: "ජලයේ දියවන විටමින් වර්ගයක්?", options: ["විටමින් A", "විටමින් C", "විටමින් D", "විටමින් E"], answer: 1, explanation: "විටමින් B සහ C ජලයේ දියවන අතර අනෙක්වා මේදයේ දියවේ." },
-  { paperId: 1, id: 519, subject: "G5", question: "ශ්‍රී ලංකාවේ මුදල් නෝට්ටු නිකුත් කරන්නේ කවුරුන්ද?", options: ["ලංකා බැංකුව", "ශ්‍රී ලංකා මහ බැංකුව", "රජය", "ජනාධිපති"], answer: 1, explanation: "ශ්‍රී ලංකා මහ බැංකුවට පමණක් මුදල් නෝට්ටු නිකුත් කිරීමේ බලය ඇත." },
-  { paperId: 1, id: 520, subject: "G5", question: "උභයජීවී සතෙකුට උදාහරණයක්?", options: ["මාළුවා", "ගෙම්බා", "කුරුල්ලා", "බල්ලා"], answer: 1, explanation: "ජලයේත් ගොඩබිමත් ජීවත් විය හැකි සතුන් උභයජීවීන් (උදා: ගෙම්බා) වේ." },
-  { paperId: 1, id: 521, subject: "G5", question: "ශ්‍රී ලංකාවේ උසම කන්ද කුමක්ද?", options: ["සමනල කන්ද", "පිදුරුතලාගල", "හග්ගල", "නමුණුකුල"], answer: 1, explanation: "පිදුරුතලාගල ලංකාවේ උසම කන්දයි." },
-  { paperId: 1, id: 522, subject: "G5", question: "මකුළුවාට පාද කීයක් තිබේද?", options: ["6", "8", "10", "4"], answer: 1, explanation: "කෘමීන්ට පාද 6ක් ඇති අතර මකුළුවන්ට පාද 8ක් ඇත." },
-  { paperId: 1, id: 523, subject: "G5", question: "සතියකට දින කීයක් තිබේද?", options: ["5", "6", "7", "8"], answer: 2, explanation: "සතියකට දින 7 කි." },
-  { paperId: 1, id: 524, subject: "G5", question: "දේදුන්නක වර්ණ කීයක් තිබේද?", options: ["5", "6", "7", "8"], answer: 2, explanation: "දේදුන්නේ වර්ණ 7 ක් ඇත." },
-  { paperId: 1, id: 525, subject: "G5", question: "ශ්‍රී ලංකාවේ ප්‍රථම අගමැතිවරයා කවුද?", options: ["ඩී. එස්. සේනානායක", "එස්. ඩබ්. ආර්. ඩී. බණ්ඩාරනායක", "ඩඩ්ලි සේනානායක", "සිරිමාවෝ බණ්ඩාරනායක"], answer: 0, explanation: "නිදහස් ශ්‍රී ලංකාවේ ප්‍රථම අගමැති ඩී. එස්. සේනානායක මහතාය." },
-  { paperId: 1, id: 526, subject: "G5", question: "63 බෙදීම 9 හි අගය?", options: ["6", "7", "8", "9"], answer: 1, explanation: "63 / 9 = 7." },
-  { paperId: 1, id: 527, subject: "G5", question: "බෞද්ධයන්ගේ පූජනීය දිනය කුමක්ද?", options: ["ඉරිදා", "පෝය දිනය", "නත්තල් දිනය", "රාමසාන්"], answer: 1, explanation: "පසළොස්වක පෝය දිනය බෞද්ධයන්ගේ පූජනීය දිනයයි." },
-  { paperId: 1, id: 528, subject: "G5", question: "ශ්‍රී ලංකාවේ ජාතික ක්‍රීඩාව කුමක්ද?", options: ["ක්‍රිකට්", "එල්ලේ", "වොලිබෝල්", "රග්බි"], answer: 2, explanation: "ශ්‍රී ලංකාවේ ජාතික ක්‍රීඩාව වොලිබෝල් වේ." },
-  { paperId: 1, id: 529, subject: "G5", question: "අපේ ජාතික කොඩියේ සිංහයා අතින් ගෙන සිටින්නේ කුමක්ද?", options: ["පලිහක්", "කඩුවක්", "ඊතලයක්", "මලක්"], answer: 1, explanation: "සිංහයා අත කඩුවක් ඇත." },
-  { paperId: 1, id: 530, subject: "G5", question: "ක්ෂීරපායී සතෙකු නොවන්නේ කවුද?", options: ["වවුලා", "තල්මසා", "මෝරා", "කිකිළි"], answer: 3, explanation: "කිකිළි යනු පක්ෂියෙකි, ඇය බිත්තර දමයි." },
-  { paperId: 1, id: 531, subject: "G5", question: "ලෝකයේ විශාලතම සාගරය කුමක්ද?", options: ["ඉන්දියන් සාගරය", "අත්ලාන්තික් සාගරය", "පැසිෆික් සාගරය", "ආක්ටික් සාගරය"], answer: 2, explanation: "පැසිෆික් සාගරය ලොව විශාලතම සාගරයයි." },
-  { paperId: 1, id: 532, subject: "G5", question: "12 x 12 කීයද?", options: ["144", "124", "122", "142"], answer: 0, explanation: "12 වරක් 12 යනු 144 කි." },
-  { paperId: 1, id: 533, subject: "G5", question: "අපේ අසල්වැසි රට කුමක්ද?", options: ["ඉන්දියාව", "ජපානය", "ඇමරිකාව", "ඕස්ට්‍රේලියාව"], answer: 0, explanation: "ශ්‍රී ලංකාවට ආසන්නතම රට ඉන්දියාවයි." },
-  { paperId: 1, id: 534, subject: "G5", question: "ගසක ආහාර නිපදවන කොටස කුමක්ද?", options: ["මුල", "කඳ", "කොළය (පත්‍රය)", "මල"], answer: 2, explanation: "පත්‍ර මගින් සූර්යාලෝකය යොදාගෙන ආහාර නිපදවයි." },
-  { paperId: 1, id: 535, subject: "G5", question: "ශ්‍රී ලංකාවේ වාණිජ අගනුවර කුමක්ද?", options: ["මහනුවර", "ශ්‍රී ජයවර්ධනපුර කෝට්ටේ", "කොළඹ", "ගාල්ල"], answer: 2, explanation: "පරිපාලන අගනුවර කෝට්ටේ වුවත් වාණිජ අගනුවර කොළඹ වේ." },
-  { paperId: 1, id: 536, subject: "G5", question: "450 ට 150 ක් එකතු කළ විට?", options: ["500", "600", "700", "550"], answer: 1, explanation: "450 + 150 = 600." },
-  { paperId: 1, id: 537, subject: "G5", question: "සීගිරිය කුමන හැඩයකින් යුක්තද?", options: ["ඝණ්ඨාකාර", "බුබ්බුලාකාර", "ජලබුබුලාකාර", "ඝටාකාර"], answer: 2, explanation: "සීගිරිය ජලබුබුලක හැඩයෙන් යුක්ත වේ." },
-  { paperId: 1, id: 538, subject: "G5", question: "ඔක්සිජන් වායුව අපට ලැබෙන්නේ ප්‍රධාන වශයෙන් කවරෙකුගෙන්ද?", options: ["සතුන්ගෙන්", "ශාක වලින්", "පසෙන්", "ජලයෙන්"], answer: 1, explanation: "ශාක ප්‍රභාසංස්ලේෂණයේදී ඔක්සිජන් පිටකරයි." },
-  { paperId: 1, id: 539, subject: "G5", question: "අයිස් දිය වූ විට ලැබෙන්නේ කුමක්ද?", options: ["වාෂ්ප", "ජලය", "හිම", "පින්න"], answer: 1, explanation: "ඝන අයිස් දිය වූ විට ද්‍රව ජලය ලැබේ." },
-  { paperId: 1, id: 540, subject: "G5", question: "සිංහල හෝඩියේ අකුරු කීයක් තිබේද?", options: ["54", "60", "61", "58"], answer: 1, explanation: "නව සිංහල සම්මත හෝඩියේ අකුරු 60 ක් ඇත." }
-];
-
-const grade5ProLevels = Array.from({length: 40}, (_, i) => ({
-  paperId: `H${i+1}`, 
-  id: 5000 + i, 
-  subject: "G5-PRO", 
-  question: `මෙම අභියෝගය ජයගැනීමට නිවැරදි පිළිතුර තෝරන්න. (Grade 5 PRO Level ${i+1})`, 
-  options: ["වැරදි පිළිතුරක්", "නිවැරදි පිළිතුර", "තවත් වැරදි එකක්", "මෙයත් වැරදියි"], 
-  answer: 1, 
-  explanation: `ඔබ මෙම අභියෝගය සාර්ථකව අවසන් කළා!`
-}));
-// Override first few for G5 Pro
-grade5ProLevels[0] = { paperId: 'H1', id: 5001, subject: "G5-PRO", question: "දිනකට පැය කීයක් තිබේද?", options: ["12", "20", "24", "48"], answer: 2, explanation: "එක් දිනකට පැය 24 කි." };
-grade5ProLevels[1] = { paperId: 'H2', id: 5002, subject: "G5-PRO", question: "මිනිස් සිරුරේ අස්ථි (ඇට) කීයක් තිබේද?", options: ["100", "206", "300", "50"], answer: 1, explanation: "වැඩිහිටි මිනිසෙකුගේ සිරුරේ අස්ථි 206 ක් ඇත." };
-grade5ProLevels[2] = { paperId: 'H3', id: 5003, subject: "G5-PRO", question: "සූර්යයා යනු කුමක්ද?", options: ["ග්‍රහලෝකයක්", "උල්කාවක්", "තරුවක්", "චන්ද්‍රයෙක්"], answer: 2, explanation: "සූර්යයා යනු අපට ආසන්නතම තරුවයි." };
-
-const fullGrade5Bank = [...grade5QuestionBank, ...grade5ProLevels];
-
-// ==========================================
-// 4. A/L ARTS (MEDIA) QUESTION BANK
-// ==========================================
-const mediaQuestionBank = [
-  // --- PAPER 1 (40 Questions) ---
-  { paperId: 1, id: 601, subject: "MED", question: "සන්නිවේදනය යන වචනය බිහිවූ 'Communis' යන ලතින් වචනයේ අර්ථය කුමක්ද?", options: ["සමාජය", "පොදු (Common)", "අදහස් හුවමාරුව", "භාෂාව"], answer: 1, explanation: "'Communis' යන ලතින් වචනයේ අර්ථය 'පොදු' යන්නයි. අදහසක් දෙපිරිසක් අතර පොදු තත්ත්වයකට පත්කිරීම මෙයින් හැඳින්වේ." },
-  { paperId: 1, id: 602, subject: "MED", question: "'සන්නිවේදනය යනු අර්ථය පිළිබඳ හවුල්කාරිත්වයක් ගොඩනැගීමයි' යනුවෙන් පැවසුවේ කවුද?", options: ["ඩෙනිස් මැක්වෙල්", "විල්බර් ශ්‍රාම්", "හැරල්ඩ් ලාස්වෙල්", "මාෂල් මැක්ලූහන්"], answer: 1, explanation: "සුප්‍රකට සන්නිවේදන විද්‍යාඥ විල්බර් ශ්‍රාම් විසින් මෙම අර්ථකථනය ලබා දී ඇත." },
-  { paperId: 1, id: 603, subject: "MED", question: "ඝෝෂාව (Noise) යන සංකල්පය ප්‍රථම වරට හඳුන්වා දුන් සන්නිවේදන ආකෘතිය කුමක්ද?", options: ["ලාස්වෙල් ආකෘතිය", "ශ්‍රාම් ආකෘතිය", "ශැනන් හා වීවර් ආකෘතිය", "බර්ලෝගේ ආකෘතිය"], answer: 2, explanation: "1949 දී ගණිතමය ආකෘතියක් ලෙස ඉදිරිපත් කළ ශැනන්-වීවර් ආකෘතිය මගින් ඝෝෂාව හඳුන්වා දුන්නේය." },
-  { paperId: 1, id: 604, subject: "MED", question: "මාෂල් මැක්ලූහන් විසින් හඳුන්වා දුන් 'ගෝලීය ගම්මානය' (Global Village) සංකල්පයට මූලික වූ සාධකය කුමක්ද?", options: ["මුද්‍රණ තාක්ෂණය", "විද්‍යුත් මාධ්‍යවල වර්ධනය (රූපවාහිනිය/ගුවන්විදුලිය)", "පුවත්පත් කලාව", "ප්‍රවාහන දියුණුව"], answer: 1, explanation: "විද්‍යුත් මාධ්‍ය හරහා මුළු ලෝකයම එක් ගම්මානයක් සේ එකිනෙකා හා සම්බන්ධ වන බව ඔහු පැවසීය." },
-  { paperId: 1, id: 605, subject: "MED", question: "'මාධ්‍යය යනු පණිවිඩයයි' (The medium is the message) යන සුප්‍රසිද්ධ ප්‍රකාශය කළේ කවුද?", options: ["විල්බර් ශ්‍රාම්", "කර්ට් ලෙවින්", "මාෂල් මැක්ලූහන්", "ඩොනල්ඩ් ෂෝ"], answer: 2, explanation: "පණිවිඩයේ අන්තර්ගතයට වඩා එය රැගෙන යන මාධ්‍යයෙහි ස්වභාවය මිනිසුන්ට බලපාන බව මැක්ලූහන් පැහැදිලි කළේය." },
-  { paperId: 1, id: 606, subject: "MED", question: "ලොව ප්‍රථම වරට අච්චුකුට්ටි (Movable Type) මුද්‍රණ යන්ත්‍රය නිපදවූයේ කවුද?", options: ["අයිසැක් නිව්ටන්", "ජොහැන්නස් ගුටෙන්බර්ග්", "ගැලීලියෝ ගැලලි", "තෝමස් එඩිසන්"], answer: 1, explanation: "15 වන සියවසේදී ජර්මනියේ ජොහැන්නස් ගුටෙන්බර්ග් විසින් මෙම මුද්‍රණ යන්ත්‍රය නිර්මාණය කළේය." },
-  { paperId: 1, id: 607, subject: "MED", question: "ශ්‍රී ලංකාවේ මුද්‍රණය වූ ප්‍රථම පුවත්පත වන 'The Colombo Journal' ආරම්භ කළ වර්ෂය කුමක්ද?", options: ["1802", "1832", "1862", "1905"], answer: 1, explanation: "1832 දී ඉංග්‍රීසි ජාතික ආණ්ඩුකාරවරයාගේ අනුග්‍රහයෙන් මෙය ආරම්භ විය." },
-  { paperId: 1, id: 608, subject: "MED", question: "ශ්‍රී ලංකාවේ ආරම්භ කළ ප්‍රථම ස්වාධීන සිංහල පුවත්පත ලෙස සැලකෙන්නේ කුමක්ද?", options: ["මාසික ත්‍යාගය", "දිනමිණ", "ලක්මිණි පහන", "සිළුමිණ"], answer: 2, explanation: "1862 සැප්තැම්බර් 11 වන දින ආරම්භ වූ 'ලක්මිණි පහන' ප්‍රථම ස්වාධීන සිංහල පුවත්පත වේ." },
-  { paperId: 1, id: 609, subject: "MED", question: "පුවත්පතක කතුවැකියෙන් (Editorial) ප්‍රධාන වශයෙන් නිරූපණය වන්නේ කුමක්ද?", options: ["පාඨකයන්ගේ අදහස්", "පුවත්පතේ නිල ප්‍රතිපත්තිය හා මතය", "දෛනික ප්‍රවෘත්ති සාරාංශය", "වෙළඳ දැන්වීම්"], answer: 1, explanation: "පුවත්පතේ කර්තෘ විසින් සමකාලීන ගැටලුවක් පිළිබඳව ආයතනයේ නිල මතය කතුවැකියෙන් ඉදිරිපත් කරයි." },
-  { paperId: 1, id: 610, subject: "MED", question: "මුල්වරට සිනමා ප්‍රදර්ශනයක් පවත්වමින් ලෝක සිනමාව ආරම්භ කළේ කුමන රටේද?", options: ["ඇමරිකාව", "ඉන්දියාව", "ප්‍රංශය", "එංගලන්තය"], answer: 2, explanation: "1895 දී ප්‍රංශයේ පැරිස් නුවරදී ලූමියර් සහෝදරයින් විසින් ප්‍රථම වරට චිත්‍රපට ප්‍රදර්ශනයක් සිදු කරන ලදී." },
-  { paperId: 1, id: 611, subject: "MED", question: "ලාංකීය සිනමාවේ ප්‍රථම කතානාද චිත්‍රපටය කුමක්ද?", options: ["රේඛාව", "අශෝකමාලා", "කඩවුණු පොරොන්දුව", "සිරිසඟබෝ"], answer: 2, explanation: "බී.ඒ.ඩබ්. ජයමාන්න විසින් අධ්‍යක්ෂණය කළ 'කඩවුණු පොරොන්දුව' ලංකාවේ පළමු කතානාද චිත්‍රපටයයි." },
-  { paperId: 1, id: 612, subject: "MED", question: "'කඩවුණු පොරොන්දුව' චිත්‍රපටය ප්‍රථම වරට තිරගත වූ වර්ෂය කුමක්ද?", options: ["1932", "1947", "1956", "1979"], answer: 1, explanation: "1947 ජනවාරි 21 වන දින මෙය තිරගත කිරීම ආරම්භ විය." },
-  { paperId: 1, id: 613, subject: "MED", question: "ශ්‍රී ලංකාවේ ප්‍රථම ගුවන් විදුලි විකාශනය ආරම්භ වූ වර්ෂය කුමක්ද?", options: ["1921", "1925", "1948", "1967"], answer: 1, explanation: "එඩ්වඩ් හාපර් ගේ මූලිකත්වයෙන් 1925 දී කොළඹ ගුවන්විදුලි සේවය ආරම්භ විය." },
-  { paperId: 1, id: 614, subject: "MED", question: "රේඩියෝ සිලෝන් (Radio Ceylon) ආයතනය ශ්‍රී ලංකා ගුවන් විදුලි සංස්ථාව (SLBC) බවට පත් වූයේ කිනම් වසරේද?", options: ["1967", "1972", "1978", "1982"], answer: 0, explanation: "1967 අංක 37 දරන පනතින් එය සංස්ථාවක් බවට පත් විය." },
-  { paperId: 1, id: 615, subject: "MED", question: "ලාංකීය රූපවාහිනී ඉතිහාසයේ ආරම්භය සනිටුහන් කළ ස්වාධීන රූපවාහිනී සේවය (ITN) ආරම්භ වූයේ කවදාද?", options: ["1979", "1982", "1992", "1995"], answer: 0, explanation: "ශාන් වික්‍රමසිංහ මහතාගේ මූලිකත්වයෙන් 1979 දී ITN නාලිකාව ආරම්භ කෙරිණි." },
-  { paperId: 1, id: 616, subject: "MED", question: "ශ්‍රී ලංකා ජාතික රූපවාහිනිය ස්ථාපිත කරන ලද්දේ කුමන රටක ආධාර ඇතිවද?", options: ["ඇමරිකාව", "චීනය", "ජපානය", "ඉන්දියාව"], answer: 2, explanation: "ජපන් රජයේ ප්‍රදානයක් ලෙස 1982 දී ජාතික රූපවාහිනිය ආරම්භ විය." },
-  { paperId: 1, id: 617, subject: "MED", question: "අන්තර්ජාලයේ (Internet) මූලාරම්භය ලෙස සැලකෙන ඇමරිකානු ආරක්ෂක අමාත්‍යාංශයේ ව්‍යාපෘතිය කුමක්ද?", options: ["ARPANET", "WWW", "ETHERNET", "MILNET"], answer: 0, explanation: "1960 ගණන් වලදී සන්නිවේදන ජාලයක් ලෙස ARPANET (Advanced Research Projects Agency Network) ආරම්භ විය." },
-  { paperId: 1, id: 618, subject: "MED", question: "ලෝක ව්‍යාප්ත වෙබ් වියමන හෙවත් WWW (World Wide Web) නිර්මාණය කළේ කවුද?", options: ["මාක් සකර්බර්ග්", "බිල් ගේට්ස්", "ටිම් බර්නර්ස් ලී", "ස්ටීව් ජොබ්ස්"], answer: 2, explanation: "1989 දී බ්‍රිතාන්‍ය ජාතික විද්‍යාඥ ටිම් බර්නර්ස් ලී (Tim Berners-Lee) විසින් WWW නිර්මාණය කළේය." },
-  { paperId: 1, id: 619, subject: "MED", question: "'ප්‍රවෘත්ති' (News) සඳහා බලපාන මූලික වටිනාකම් (News Values) අතරට අයත් නොවන්නේ කුමක්ද?", options: ["කාලීන බව (Timeliness)", "සමීප බව (Proximity)", "අබව්‍ය බව (Improbability)", "වැදගත්කම (Prominence)"], answer: 2, explanation: "ප්‍රවෘත්තියක් යථාර්ථවාදී විය යුතුය. අබව්‍ය (සිදුවිය නොහැකි) දේවල් ප්‍රවෘත්ති නොවේ." },
-  { paperId: 1, id: 620, subject: "MED", question: "සන්නිවේදන ක්‍රියාවලියේදී පණිවිඩය ග්‍රාහකයාට තේරුම් ගත හැකි ආකාරයට පරිවර්තනය කරගැනීම හඳුන්වන්නේ කුමක් ලෙසද?", options: ["සංකේතනය (Encoding)", "විසංකේතනය (Decoding)", "ප්‍රතිපෝෂණය (Feedback)", "මාධ්‍යය (Medium)"], answer: 1, explanation: "ලැබෙන පණිවිඩය (සංකේත) කියවා තේරුම් ගැනීම විසංකේතනයයි." },
-  { paperId: 1, id: 621, subject: "MED", question: "සන්නිවේදකයෙකු තමන්ගේ අදහස පණිවිඩයක් බවට පත්කිරීමට වචන, රූප හෝ සංඥා භාවිත කිරීම හඳුන්වන්නේ?", options: ["සංකේතනය (Encoding)", "විසංකේතනය", "ප්‍රචාරණය", "බලපෑම"], answer: 0, explanation: "අදහසක් භෞතික ස්වරූපයකට හැරවීම සංකේතනය නම් වේ." },
-  { paperId: 1, id: 622, subject: "MED", question: "මාධ්‍ය සාක්ෂරතාවය (Media Literacy) යන්නෙන් මූලිකවම අදහස් වන්නේ කුමක්ද?", options: ["පුවත්පත් කියවීමට ඇති හැකියාව", "මාධ්‍ය පණිවිඩ විචාරශීලීව අවබෝධ කරගැනීමේ සහ විශ්ලේෂණය කිරීමේ හැකියාව", "කැමරාවක් හැසිරවීමේ හැකියාව", "අන්තර්ජාලය වේගයෙන් භාවිතා කිරීම"], answer: 1, explanation: "මාධ්‍ය ඔස්සේ එන තොරතුරු වල සත්‍ය අසත්‍යතාව සහ යටි අරමුණු හඳුනාගැනීමේ විචාර බුද්ධියයි." },
-  { paperId: 1, id: 623, subject: "MED", question: "හැරල්ඩ් ලාස්වෙල්ගේ (1948) සන්නිවේදන ආකෘතියේ අවසන් අදියරෙන් අවධානය යොමු වන්නේ කුමක් වෙතද?", options: ["කවුද? (Who)", "කුමක් කියයිද? (Says what)", "කාටද? (To whom)", "කුමන බලපෑමක් සහිතවද? (With what effect)"], answer: 3, explanation: "ලාස්වෙල් ආකෘතිය ප්‍රධාන වශයෙන් සන්නිවේදනයේ බලපෑම (Effect) කෙරෙහි අවධානය යොමු කරයි." },
-  { paperId: 1, id: 624, subject: "MED", question: "ප්‍රවෘත්ති තෝරාගැනීමේදී සහ පෙරීමේදී ක්‍රියාත්මක වන 'ගේට් කීපින්' (Gatekeeping - ද්වාර පාලනය) සංකල්පය මුලින්ම හඳුන්වා දුන්නේ කවුද?", options: ["විල්බර් ශ්‍රාම්", "කර්ට් ලෙවින් (Kurt Lewin)", "මාෂල් මැක්ලූහන්", "ඩෙනිස් මැක්වෙල්"], answer: 1, explanation: "මනෝවිද්‍යාඥ කර්ට් ලෙවින් විසින් 1943 දී මෙම සංකල්පය හඳුන්වා දෙන ලදී." },
-  { paperId: 1, id: 625, subject: "MED", question: "මාධ්‍ය මගින් සමාජයේ කතිකාවත සහ න්‍යාය පත්‍රය (Agenda Setting) සකස් කරන බව පෙන්වා දුන්නේ කවුද?", options: ["කර්ට් ලෙවින්", "ශැනන් හා වීවර්", "මැක්ස්වෙල් මැක්කොම්බ්ස් සහ ඩොනල්ඩ් ෂෝ", "ලාස්වෙල්"], answer: 2, explanation: "ජනතාව සිතිය යුත්තේ කුමක් ගැනද යන්න ජනමාධ්‍ය විසින් තීරණය කරන බව මොවුන් පෙන්වා දුනි." },
-  { paperId: 1, id: 626, subject: "MED", question: "සන්නිවේදනයේ 'ද්වි-පියවර ගලායාමේ න්‍යාය' (Two-step flow theory) හි ප්‍රධාන චරිතය ලෙස සැලකෙන්නේ කවුද?", options: ["මත නායකයින් (Opinion Leaders)", "ග්‍රාහකයා", "ද්වාර පාලකයා", "රජය"], answer: 0, explanation: "මාධ්‍ය පණිවිඩ මුලින්ම මත නායකයින් වෙත ගොස්, ඔවුන් හරහා සමාජයේ අනෙක් අයට ගලා යන බව මින් කියැවේ." },
-  { paperId: 1, id: 627, subject: "MED", question: "නව මාධ්‍යයේ (New Media) සහ සමාජ මාධ්‍ය වල ඇති ප්‍රධානතම සුවිශේෂී ලක්ෂණයක් වන්නේ කුමක්ද?", options: ["ඒක-මාර්ගික වීම", "අන්තර්ක්‍රියාකාරීත්වය (Interactivity)", "ප්‍රමාද වී ප්‍රතිපෝෂණ ලැබීම", "පිරිවැය අධික වීම"], answer: 1, explanation: "ග්‍රාහකයාට එසැණින් ප්‍රතිචාර දැක්වීමට සහ අදහස් දැක්වීමට ඇති හැකියාව (Interactivity) මෙහි විශේෂත්වයයි." },
-  { paperId: 1, id: 628, subject: "MED", question: "අයිවන් පව්ලොව් ගේ සුනඛ පරීක්ෂණය කුමන සන්නිවේදන/මනෝවිද්‍යා න්‍යායකට අයත්ද?", options: ["උත්තේජක-ප්‍රතිචාර න්‍යාය (Stimulus-Response)", "භාවිත හා තෘප්තිමත් න්‍යාය", "සංජානන විසංවාදය", "න්‍යාය පත්‍ර සැකසීම"], answer: 0, explanation: "බාහිරින් දෙනු ලබන උත්තේජකයකට අනුරූපව සත්ත්වයා හෝ ග්‍රාහකයා දක්වන ප්‍රතිචාරය මෙයින් පැහැදිලි කෙරේ." },
-  { paperId: 1, id: 629, subject: "MED", question: "ප්‍රචාරණය (Advertising) යන්නෙහි මූලික ලක්ෂණයක් වන්නේ?", options: ["නොමිලේ ප්‍රචාරය වීම", "ගෙවීමක් සහිතව, හඳුනාගත් අනුග්‍රාහකයෙකු හරහා සිදුකිරීම", "අපක්ෂපාතී තොරතුරු දීම", "කතුවැකියක ස්වරූපයෙන් පැවතීම"], answer: 1, explanation: "ප්‍රචාරණය යනු සෑම විටම මුදල් ගෙවා ලබාගන්නා, අනුග්‍රාහකයාගේ අරමුණු ඉටු කරන සන්නිවේදන ක්‍රමයකි." },
-  { paperId: 1, id: 630, subject: "MED", question: "මහජන සම්බන්ධතා (Public Relations / PR) වල ප්‍රධානතම අරමුණ කුමක්ද?", options: ["භාණ්ඩ විකිණීම", "අවම පිරිවැයකින් ප්‍රවෘත්ති මැවීම", "ආයතනය සහ එහි මහජනතාව අතර අන්‍යෝන්‍ය අවබෝධය හා යහපත් ප්‍රතිරූපයක් ගොඩනැගීම", "තරඟකරුවන් විනාශ කිරීම"], answer: 2, explanation: "PR හි මූලික අරමුණ වන්නේ ආයතනය කෙරෙහි මහජන විශ්වාසය සහ යහපත් ප්‍රතිරූපයක් ඇති කිරීමයි." },
-  { paperId: 1, id: 631, subject: "MED", question: "ශ්‍රී ලංකා පුවත්පත් මණ්ඩලය ස්ථාපිත කරන ලද්දේ කිනම් පනතක් මගින්ද?", options: ["1981 අංක 10 පනත", "1973 අංක 5 දරන පුවත්පත් මණ්ඩල පනත", "1995 විද්‍යුත් මාධ්‍ය පනත", "2016 තොරතුරු පනත"], answer: 1, explanation: "පුවත්පත් නිදහස සහ පුවත්පත් කලාවේ ආචාරධර්ම සුරැකීම සඳහා 1973 දී මෙම මණ්ඩලය පිහිටුවන ලදී." },
-  { paperId: 1, id: 632, subject: "MED", question: "තොරතුරු දැනගැනීමේ අයිතිවාසිකම (RTI) පිළිබඳ පනත ශ්‍රී ලංකා පාර්ලිමේන්තුවේ සම්මත වූයේ කිනම් වසරේද?", options: ["2010", "2015", "2016", "2020"], answer: 2, explanation: "2016 අංක 12 දරන තොරතුරු දැනගැනීමේ අයිතිවාසිකම පිළිබඳ පනත මගින් මහජනතාවට රාජ්‍ය තොරතුරු ලබාගැනීමේ අයිතිය තහවුරු විය." },
-  { paperId: 1, id: 633, subject: "MED", question: "'කහ පුවත්පත් කලාව' (Yellow Journalism) යන්නෙන් අදහස් වන්නේ කුමක්ද?", options: ["කහ පැහැති කඩදාසිවල මුද්‍රණය කිරීම", "ආවේගාත්මක, සත්‍ය විකෘති කරන සහ අතිශයෝක්තියෙන් යුත් පුවත් වාර්තාකරණය", "බෞද්ධ ප්‍රවෘත්ති වාර්තාකරණය", "ක්‍රීඩා පුවත් පමණක් වාර්තා කිරීම"], answer: 1, explanation: "අලෙවිය වැඩිකර ගැනීම සඳහා පාඨකයා කම්පනයට පත්කරන ආකාරයේ ආන්දෝලනාත්මක පුවත් නිර්මාණය කිරීම මෙයින් අදහස් වේ." },
-  { paperId: 1, id: 634, subject: "MED", question: "ලෝක පුවත්පත් නිදහස් දිනය (World Press Freedom Day) ලෙස ජාත්‍යන්තරව සමරන්නේ කවදාද?", options: ["ජනවාරි 1", "මාර්තු 15", "මැයි 3", "ඔක්තෝම්බර් 24"], answer: 2, explanation: "එක්සත් ජාතීන්ගේ සංවිධානය විසින් මැයි 3 වනදා ලෝක පුවත්පත් නිදහස් දිනය ලෙස ප්‍රකාශයට පත් කර ඇත." },
-  { paperId: 1, id: 635, subject: "MED", question: "ගුවන්විදුලි සන්නිවේදනයේදී බහුලවම භාවිතා වන FM යන්නෙහි තේරුම කුමක්ද?", options: ["Fast Media", "Free Modulation", "Frequency Modulation (සංඛ්‍යාත මූර්ඡනය)", "Forward Message"], answer: 2, explanation: "ගුවන්විදුලි තරංග වල සංඛ්‍යාතය වෙනස් කිරීම මගින් පණිවිඩ යැවීම FM තාක්ෂණයයි." },
-  { paperId: 1, id: 636, subject: "MED", question: "මාධ්‍ය ආචාරධර්ම (Media Ethics) වල මූලිකම අරමුණ කුමක්ද?", options: ["මාධ්‍ය ආයතනයේ ලාභය වැඩි කිරීම", "වගකීම් සහගතව, අපක්ෂපාතීව සහ නිවැරදිව තොරතුරු වාර්තා කිරීම", "රජයට පක්ෂපාතී වීම", "වෙනත් නාලිකා වලට පහරදීම"], answer: 1, explanation: "සමාජයට හානියක් නොවන අයුරින් සත්‍යගරුකව සහ සාධාරණව තොරතුරු ලබාදීම මාධ්‍ය සදාචාරයයි." },
-  { paperId: 1, id: 637, subject: "MED", question: "ලාංකීය සිනමාවේ විප්ලවීය වෙනසක් ඇති කළ, ආචාර්ය ලෙස්ටර් ජේම්ස් පීරිස් අධ්‍යක්ෂණය කළ ප්‍රථම චිත්‍රපටය කුමක්ද?", options: ["ගම්පෙරළිය", "රේඛාව", "නිධානය", "සංදේශය"], answer: 1, explanation: "1956 දී තිරගත වූ 'රේඛාව' චිත්‍රපටය ලාංකීය සිනමාව එළිමහනට රැගෙන ආ ප්‍රථම සැබෑ දේශීය චිත්‍රපටය ලෙස සැලකේ." },
-  { paperId: 1, id: 638, subject: "MED", question: "බ්‍රෝඩ්බෑන්ඩ් (Broadband) තාක්ෂණය මූලිකවම සම්බන්ධ වන්නේ කුමන මාධ්‍යයකටද?", options: ["ගුවන් විදුලියට", "පුවත්පත් වලට", "අන්තර්ජාල සන්නිවේදනයට", "සිනමාවට"], answer: 2, explanation: "අධිවේගී අන්තර්ජාල සේවා ලබා දීම සඳහා බ්‍රෝඩ්බෑන්ඩ් තාක්ෂණය භාවිතා කෙරේ." },
-  { paperId: 1, id: 639, subject: "MED", question: "අන්තර් පුද්ගල සන්නිවේදනය (Interpersonal Communication) යනු?", options: ["තමා තමා සමගම කතා කිරීම", "පුද්ගලයින් දෙදෙනෙකු හෝ කුඩා කණ්ඩායමක් අතර මුහුණට මුහුණ සිදුවන සන්නිවේදනය", "රූපවාහිනිය නැරඹීම", "පොතක් කියවීම"], answer: 1, explanation: "පුද්ගලයන් අතර සෘජුවම අදහස් හුවමාරු වීම අන්තර් පුද්ගල සන්නිවේදනයයි." },
-  { paperId: 1, id: 640, subject: "MED", question: "ජනමාධ්‍යයේ (Mass Media) ප්‍රධාන ලක්ෂණයක් නොවන්නේ කුමක්ද?", options: ["පුළුල් සහ විසිරුණු ග්‍රාහක පිරිසක් සිටීම", "පණිවිඩය වේගයෙන් සම්ප්‍රේෂණය වීම", "ග්‍රාහකයාට ක්ෂණිකව සහ පහසුවෙන් ප්‍රතිපෝෂණ දිය හැකි වීම", "තාක්ෂණික මෙවලමක් භාවිතා වීම"], answer: 2, explanation: "සාම්ප්‍රදායික ජනමාධ්‍යයේ (පුවත්පත්, TV) පණිවිඩය ගමන් කරන්නේ එක් දිශාවකට පමණක් බැවින් ක්ෂණික ප්‍රතිපෝෂණ දීම අපහසුය." }
-];
-
-const mediaProLevels = Array.from({length: 40}, (_, i) => ({
-  paperId: `H${i+1}`, 
-  id: 6000 + i, 
-  subject: "MED-PRO", 
-  question: `මෙම කලා විෂය අභියෝගය ජයගැනීමට නිවැරදි පිළිතුර තෝරන්න. (Advanced Media Challenge ${i+1})`, 
-  options: ["වැරදි පිළිතුරක්", "නිවැරදි පිළිතුර", "තවත් වැරදි එකක්", "මෙයත් වැරදියි"], 
-  answer: 1, 
-  explanation: `ඔබ මෙම අභියෝගය සාර්ථකව අවසන් කළා!`
-}));
-
-mediaProLevels[0] = { paperId: 'H1', id: 6001, subject: "MED-PRO", question: "සන්නිවේදනයේ 'උපලක්ෂිත අර්ථය' (Connotative Meaning) යනු කුමක්ද?", options: ["ශබ්දකෝෂයේ ඇති සෘජු අර්ථය", "සමාජය විසින් හෝ පුද්ගලයා විසින් ආරෝපණය කරගත් සැඟවුණු අර්ථය", "වචනයේ මුල් භාෂාව", "ව්‍යාකරණානුකූල අර්ථය"], answer: 1, explanation: "උදාහරණයක් ලෙස 'බල්ලා' යන්නෙහි වාච්‍යාර්ථය සතෙකු වුවත්, එය පුද්ගලයෙකුට බැණවැදීමට යොදාගැනීම උපලක්ෂිත අර්ථයකි." };
-mediaProLevels[1] = { paperId: 'H2', id: 6002, subject: "MED-PRO", question: "'ප්‍රජා ගුවන්විදුලිය' (Community Radio) හි මූලික ලක්ෂණය කුමක්ද?", options: ["වාණිජ ලාභ ඉපයීම", "රජයේ ප්‍රචාරක කටයුතු කිරීම", "යම් නිශ්චිත ප්‍රජාවකගේ සහභාගීත්වයෙන් එම ප්‍රජාවගේ දියුණුව වෙනුවෙන් ක්‍රියාත්මක වීම", "ජාත්‍යන්තර ප්‍රවෘත්ති පමණක් විකාශය කිරීම"], answer: 2, explanation: "මහවැලි ප්‍රජා ගුවන්විදුලිය මෙන්, ග්‍රාමීය ප්‍රජාව සවිබල ගැන්වීම මෙහි අරමුණයි." };
-
-const fullMediaBank = [...mediaQuestionBank, ...mediaProLevels];
-
+// Funny messages for all modes (Kid-friendly)
+const funnyCorrect = [ 
+  "🎉 නියමයි! ඔයා නම් මාර වැඩකාරයෙක්!", 
+  "🌟 සුපිරි! දිගටම යමු!", 
+  "🧠 මොළේ තමයි ඉතින්!", 
+  "🚀 නියමටම හරි!", 
+  "🎯 අන්න හරි! ඔයා ගින්දර!", 
+  "🏆 පට්ට! ඔයා දිනුම්!", 
+  "😎 ඔයාට නම් කවුරුත් නෑ හැප්පෙන්න!", 
+  "✨ ඒක නම් පංකාදු පහයි!", 
+  "💪 එළකිරි! ඔහොම යං!",
+  "🐥 පුංචි පැටියා අද දිනුම්!",
+  "🦁 ඔයා නම් සිංහ පැටියෙක් වගේ!"
+]; 
+const funnyWrong = [ 
+  "🙈 අපොයි! පොඩ්ඩක් වැරදුනා නේද?", 
+  "🤪 කමක් නෑ, ඊළඟ එක හරියටම කරමු!", 
+  "🐢 කල්පනාවෙන් හිතලා කරමු!", 
+  "😅 අහ්! ඒක නම් වැරදුනා!", 
+  "🤦‍♂️ අයියෝ සල්ලි! ආයෙත් බලමුද?", 
+  "👀 ඊළඟ එකෙන් ගේමක් ගහමු!", 
+  "🙃 හප්පා! පොඩ්ඩයි වැරදුනේ!", 
+  "😬 ටිකක් කල්පනා කරමු නේද?", 
+  "🧠 හැප්පුනා නේද? කමක් නෑ, ආයෙ කරමු!", 
+  "🎈 වැරදුනාට කමක් නෑ, බැලුමක් පිපිරුණා වගේ!",
+  "🐌 ඉබ්බා වගේ හිමීට හිතලා බලමුද?"
+]; 
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [gameState, setGameState] = useState('home'); 
+  const [isAppLoaded] = useState(true);
+  const [gameState, setGameStateRaw] = useState('home'); 
   const [selectedStream, setSelectedStream] = useState(null); 
-  
   const [selectedPaper, setSelectedPaper] = useState(null);
-  const [currentQuestions, setCurrentQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [isCorrect, setIsCorrect] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
-  
+  const [isCorrect, setIsCorrect] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
-  const [userHistory, setUserHistory] = useState([]);
-  
-  const [userName, setUserName] = useState('');
-  const [nameConfirmed, setNameConfirmed] = useState(false);
-  const [isExiting, setIsExiting] = useState(false); // <-- මෙම නව State එක අලුතින් එකතු කරන්න
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [userVote, setUserVote] = useState(null);
-  const [configError, setConfigError] = useState(false);
+  const [userName, setUserName] = useState(() => localStorage.getItem('edu_quest_user_name') || '');
+  const [nameConfirmed, setNameConfirmed] = useState(() => !!localStorage.getItem('edu_quest_user_name'));
+  const [timeLeft, setTimeLeft] = useState(15);
   const [userAnswers, setUserAnswers] = useState([]);
   const [showReview, setShowReview] = useState(false);
-
   const [totalLikes, setTotalLikes] = useState(0);
   const [totalUnlikes, setTotalUnlikes] = useState(0);
-  
-  const [leaderboardTab, setLeaderboardTab] = useState('normal'); 
-  const [showAllLeaderboard, setShowAllLeaderboard] = useState(false); 
-  const [grandLeaderboardTab, setGrandLeaderboardTab] = useState('grade5'); // <-- මෙම නව State එක අලුතින් එකතු කරන්න
+  const [userVote, setUserVote] = useState(null);
+  const [grandLeaderboardTab, setGrandLeaderboardTab] = useState('grade5');
+  const [leaderboardTab, setLeaderboardTab] = useState('normal');
+  const [showAllLeaderboard, setShowAllLeaderboard] = useState(false);
+  const [funnyCorrectMessage, setFunnyCorrectMessage] = useState('');
+  const [funnyWrongMessage, setFunnyWrongMessage] = useState('');
+  const [currentQuestions, setCurrentQuestions] = useState([]);
+  const [streamView, setStreamView] = useState('main');
+  const gameStateHistoryRef = useRef([]);
 
-  const [timeLeft, setTimeLeft] = useState(0);
-
-  const funnyCorrect = ["🔥 සුපිරි පාර! (HEADSHOT!)", "💥 අම්මෝ ඒක! (GODLIKE!)", "🚀 ගැම්මක් තමයි! (UNSTOPPABLE!)", "👑 මොලේ තමයි ඉතින්! (GENIUS!)"];
-  const funnyWrong = ["💀 අනේ අපොයි! (WASTED!)", "🤡 ඒක නම් අනාගත්තා! (EPIC FAIL!)", "🥴 මොකක්ද හලෝ ඒ දුන්නු උත්තරේ! (NOOB!)", "📉 කෙලවියා! (TRY AGAIN!)"];
-
-  useEffect(() => {
-    if (!firebaseConfig.apiKey || firebaseConfig.apiKey === "YOUR_API_KEY") {
-      setConfigError(true);
-      setIsLoading(false);
-      return;
-    }
-
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          await signInAnonymously(auth);
-        }
-      } catch (err) { 
-        console.error("Authentication Error:", err);
-      } finally { 
-        setIsLoading(false); 
-      }
-    };
-    
-    initAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setUser(u);
-      if (u) {
-        try {
-          const profileDoc = await getDoc(doc(db, 'artifacts', appId, 'users', u.uid, 'profile', 'info'));
-          if (profileDoc.exists() && profileDoc.data().name) {
-            setUserName(profileDoc.data().name);
-            setNameConfirmed(true);
-          }
-        } catch (err) { console.error("Profile fetch error:", err); }
-      }
+  const setGameState = useCallback((nextState) => {
+    setGameStateRaw((prev) => {
+      const resolved = typeof nextState === 'function' ? nextState(prev) : nextState;
+      if (prev !== resolved) gameStateHistoryRef.current.push(prev);
+      return resolved;
     });
-    return () => unsubscribe();
   }, []);
 
-  const handleNameConfirm = () => {
-    if (!userName.trim()) return;
-    setIsExiting(true); // Animation එක ආරම්භ කිරීම
-    setTimeout(async () => {
-      setNameConfirmed(true);
-      setIsExiting(false);
-      if (user) {
-        try {
-          await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'profile', 'info'), { name: userName });
-        } catch (e) { console.error("Name save error:", e); }
+  const setGameStateNoHistory = useCallback((nextState) => {
+    setGameStateRaw((prev) => (typeof nextState === 'function' ? nextState(prev) : nextState));
+  }, []);
+
+  const goBack = useCallback(() => {
+    setGameStateRaw((prev) => {
+      const history = gameStateHistoryRef.current;
+      while (history.length > 0) {
+        const candidate = history.pop();
+        if (!candidate) continue;
+        if (candidate === 'playing' || candidate === 'result') continue;
+        return candidate;
       }
-    }, 500); // Animation එක අවසන් වීමට මිලි තත්පර 500ක් ලබා දීම
-  };
-
-  // Leaderboard Sync (Aggregated Cumulative Scoring - SAFE FOR OLD DATA)
-  useEffect(() => {
-    if (!user || !db) return;
-    const q = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      
-      let likes = 0;
-      let unlikes = 0;
-      const userStats = {};
-
-      docs.forEach(d => {
-        if (d.vote === 'like') likes++;
-        if (d.vote === 'dislike') unlikes++;
-
-        const uid = String(d.userId || d.name || "unknown"); 
-        const stream = typeof d.stream === 'string' ? d.stream : 'commerce'; 
-
-        if (!userStats[uid]) {
-            userStats[uid] = { name: typeof d.name === 'string' ? d.name : "Unknown", streams: {} };
-        }
-        if (!userStats[uid].streams[stream]) {
-            userStats[uid].streams[stream] = { papers: {}, proLevel: 0 };
-        }
-        
-        const pid = String(d.paperId || 1);
-        if (pid.startsWith('H')) {
-            const levelNum = parseInt(pid.replace('H', '')) || 0;
-            if (Number(d.score) > 0) { 
-                userStats[uid].streams[stream].proLevel = Math.max(userStats[uid].streams[stream].proLevel, levelNum);
-            }
-        } else {
-            if (!userStats[uid].streams[stream].papers[pid] || userStats[uid].streams[stream].papers[pid] < Number(d.score)) {
-                userStats[uid].streams[stream].papers[pid] = Number(d.score) || 0;
-            }
-        }
-      });
-
-      const finalLeaderboard = Object.keys(userStats).flatMap(uid => {
-          return Object.keys(userStats[uid].streams).map(stream => {
-             const streamData = userStats[uid].streams[stream];
-             const totalScore = Object.values(streamData.papers).reduce((acc, val) => acc + val, 0);
-             return {
-                 id: `${uid}_${stream}`,
-                 name: userStats[uid].name,
-                 stream: stream,
-                 score: totalScore,
-                 proLevel: streamData.proLevel
-             };
-          });
-      });
-
-      setLeaderboard(finalLeaderboard);
-      setTotalLikes(likes);
-      setTotalUnlikes(unlikes);
-
-    }, (error) => {
-      console.error("Leaderboard Error:", error);
+      return prev;
     });
-    return () => unsubscribe();
-  }, [user]);
+  }, []);
 
-  // History Sync
-  useEffect(() => {
-    if (!user || !db) return;
-    const q = collection(db, 'artifacts', appId, 'users', user.uid, 'scores');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setUserHistory(docs.sort((a, b) => b.timestamp - a.timestamp));
-    });
-    return () => unsubscribe();
-  }, [user]);
+  const getCurrentBank = useCallback(() => {
+    if (selectedStream === 'grade5') return fullGrade5Bank || [];
+    
+    let bank = [];
+    if (selectedStream === 'grade6_maths') bank = fullGrade6MathsBank || [];
+    else if (selectedStream === 'grade6_science') bank = fullGrade6ScienceBank || [];
+    else if (selectedStream === 'grade6_oriental_music') bank = fullGrade6OrientalMusicBank || [];
+    else if (selectedStream === 'grade6_western_music') bank = fullGrade6WesternMusicBank || [];
+    else if (selectedStream === 'chemistry' || selectedStream === 'chemistry_maths') bank = fullChemistryBank || [];
+    else if (selectedStream === 'physics' || selectedStream === 'physics_maths') bank = fullPhysicsBank || [];
+    else if (selectedStream === 'agri') bank = fullAgriBank || [];
+    else if (['biology', 'combined_maths', 'ict_maths'].includes(selectedStream)) bank = fullScienceBank || [];
+    else if (['sinhala', 'tamil', 'english', 'japanese', 'french', 'hindi', 'pol_sci', 'geography_arts', 'history', 'econ_arts', 'psychology', 'art', 'music', 'dance', 'drama', 'logic', 'buddhist_civ', 'christian_civ', 'media', 'ict_arts'].includes(selectedStream)) bank = fullMediaBank || [];
+    else bank = fullCommerceBank || [];
 
-  // Timer Logic for PRO Mode
-  useEffect(() => {
-    if (gameState === 'playing' && String(selectedPaper).startsWith('H') && !showFeedback) {
-        if (timeLeft > 0) {
-            const timerId = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
-            return () => clearTimeout(timerId);
-        } else if (timeLeft === 0) {
-            handleTimeOut();
-        }
+    return bank;
+  }, [selectedStream]);
+
+  const availablePaperIds = (() => {
+    const bank = getCurrentBank() || [];
+    const ids = new Set();
+    for (const q of bank) {
+      const pidRaw = q?.paperId;
+      if (pidRaw === undefined || pidRaw === null) continue;
+      const pidStr = String(pidRaw);
+      if (pidStr.startsWith('H')) continue;
+      const pidNum = Number(pidStr);
+      if (!Number.isFinite(pidNum)) continue;
+      ids.add(pidNum);
     }
-  }, [timeLeft, gameState, selectedPaper, showFeedback]);
+    return ids;
+  })();
 
-  const handleTimeOut = () => {
-    setIsCorrect(false);
-    setSelectedOption(-1);
-    playSound('wrong');
+  const checkAnswer = useCallback((isTimeout = false) => {
+    if (showFeedback) return;
+    
+    const question = currentQuestions[currentIndex];
+    if (!question) return;
+
+    const correct = Number(selectedOption) === Number(question.answer);
+    
+    setIsCorrect(correct);
+    setShowFeedback(true);
+    
+    if (correct) {
+      setScore(prev => prev + 10);
+      playSound('correct');
+      const msg = funnyCorrect[Math.floor(Math.random() * funnyCorrect.length)];
+      setFunnyCorrectMessage(msg);
+    } else {
+      playSound('wrong');
+      const msg = funnyWrong[Math.floor(Math.random() * funnyWrong.length)];
+      setFunnyWrongMessage(msg);
+    }
+
     setUserAnswers(prev => [...prev, {
       questionIndex: currentIndex,
-      selectedIdx: -1,
-      isSkipped: true,
-      timeOut: true
+      selectedIdx: isTimeout ? -1 : selectedOption,
+      isCorrect: correct
     }]);
-    setShowFeedback(true);
-    autoSaveProgress(score);
-  };
+  }, [showFeedback, currentQuestions, currentIndex, selectedOption]);
 
-  const autoSaveProgress = async (currentScore, isCompleted = false, voteVal = userVote) => {
-    if (!user || !userName.trim()) return;
-    const docId = `${user.uid}_${selectedStream}_${selectedPaper}`;
-    const scoreData = {
-      name: userName,
-      score: Number(currentScore) || 0,
-      paperId: selectedPaper,
-      stream: selectedStream,
-      timestamp: Date.now(),
-      userId: user.uid,
-      completed: isCompleted,
-      ...(voteVal && { vote: voteVal })
-    };
-
+  // Auth & Sync
+  useEffect(() => {
     try {
-      await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', docId), scoreData);
-      await setDoc(doc(db, 'artifacts', appId, 'users', user.uid, 'scores', docId), scoreData);
-    } catch (err) { 
-      console.error("Autosave Error:", err);
+      signInAnonymously(auth).catch(err => console.error("Auth error:", err));
+      
+      const unsubLeaderboard = subscribeToLeaderboard(appId, (data) => {
+        setLeaderboard(data);
+      }, (error) => {
+        console.warn("Leaderboard fetch error (possibly transient):", error);
+      });
+
+      const unsubStats = subscribeToStats(appId, (data) => {
+        setTotalLikes(data.likes || 0);
+        setTotalUnlikes(data.unlikes || 0);
+      }, (error) => {
+        console.warn("Stats fetch error (possibly transient):", error);
+      });
+
+      return () => { unsubLeaderboard(); unsubStats(); };
+    } catch (e) {
+      console.error("Firebase Sync Setup Error:", e);
+    }
+  }, []);
+
+  // Timer for PRO Mode
+  useEffect(() => {
+    if (gameState !== 'playing' || !String(selectedPaper).startsWith('H') || showFeedback || timeLeft <= 0) return;
+    const timer = setTimeout(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          checkAnswer(true);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [gameState, showFeedback, selectedPaper, timeLeft, checkAnswer]);
+
+  const handleNameConfirm = () => {
+    if (userName.trim()) {
+      setNameConfirmed(true);
+      localStorage.setItem('edu_quest_user_name', userName.trim());
     }
   };
 
-  const selectStream = (streamName) => {
-    setSelectedStream(streamName);
+  const selectStream = (stream) => {
+    setSelectedStream(stream);
     setGameState('start');
+    const isG6 = String(stream).startsWith('grade6_');
+    setGrandLeaderboardTab(stream === 'grade5' ? 'grade5' : (isG6 ? 'grade6' : (['biology', 'chemistry', 'physics', 'agri'].includes(stream) ? 'science' : 'commerce')));
   };
-
-  const getActiveBank = () => {
-    if (selectedStream === 'grade5') return fullGrade5Bank;
-    if (selectedStream === 'media') return fullMediaBank;
-    return selectedStream === 'commerce' ? fullCommerceBank : fullScienceBank;
-  };
-
-  const nextProLevelToPlay = userHistory.reduce((max, d) => {
-    if (d.stream === selectedStream && String(d.paperId).startsWith('H') && Number(d.score) > 0) {
-      return Math.max(max, parseInt(String(d.paperId).replace('H', '')) || 0);
-    }
-    return max;
-  }, 0) + 1;
-
-  const getBaseTimeForPro = () => selectedStream === 'grade5' ? 45 : 15;
 
   const selectPaper = (paperId) => {
-    const activeBank = getActiveBank();
-    const isPro = String(paperId).startsWith('H');
-    let paperQuestions;
-    
-    if (isPro) {
-       const levelNum = parseInt(String(paperId).replace('H', '')) || 1;
-       const proBank = activeBank.filter(q => !String(q.paperId).startsWith('H') || String(q.paperId) === String(paperId));
-       const shuffled = [...proBank].sort(() => 0.5 - Math.random());
-       const qCount = Math.min(levelNum + 2, 20);
-       paperQuestions = shuffled.slice(0, qCount);
-    } else {
-       paperQuestions = activeBank.filter(q => String(q.paperId) === String(paperId));
-       if (paperQuestions.length === 0) {
-         alert(`මෙම ප්‍රශ්න පත්‍රය සඳහා තවමත් ප්‍රශ්න ඇතුළත් කර නැත. ළඟදීම බලාපොරොත්තු වන්න!`);
-         return;
-       }
-       paperQuestions = paperQuestions.sort(() => 0.5 - Math.random()).slice(0, 40); 
-    }
-    
     setSelectedPaper(paperId);
-    setCurrentQuestions(paperQuestions); 
+    
+    const bank = getCurrentBank();
+    let sessionPool = [];
+
+    // Simplified Paper Selection Logic
+    const isHardMode = String(paperId).startsWith('H');
+    if (!isHardMode) {
+      const pool = bank.filter(q => String(q.paperId) === String(paperId));
+      sessionPool = shuffleArray(pool);
+    } else {
+      // PRO Mode logic
+      const shuffled = shuffleArray(bank);
+      const lvlNum = parseInt(String(paperId).replace('H', ''));
+      let qCount = 3;
+      if (lvlNum === 2) qCount = 5;
+      else if (lvlNum === 3) qCount = 7;
+      else if (lvlNum >= 4) qCount = 5 + (lvlNum - 4) * 2;
+      sessionPool = shuffled.slice(0, qCount);
+    }
+
+    setCurrentQuestions(sessionPool);
     setCurrentIndex(0);
     setScore(0);
+    setGameState('playing');
+    setShowFeedback(false);
+    setSelectedOption(null);
     setUserAnswers([]);
     setShowReview(false);
-    setSelectedOption(null);
+    setUserVote(null);
     
-    if (isPro) {
-       const levelNum = parseInt(String(paperId).replace('H', '')) || 1;
-       const baseTime = getBaseTimeForPro();
-       setTimeLeft(Math.max(baseTime - Math.floor(levelNum / 5), 5)); 
+    let initialTime = 15;
+    if (String(paperId).startsWith('H')) {
+      initialTime = selectedStream === 'grade5' ? 45 : 30;
     }
-    
-    setGameState('playing');
-  };
-
-  const selectOption = (idx) => {
-    if (showFeedback) return;
-    setSelectedOption(idx);
-  };
-
-  const checkAnswer = () => {
-    if (selectedOption === null || showFeedback) return;
-    const correct = selectedOption === currentQuestions[currentIndex].answer;
-    setIsCorrect(correct);
-    
-    playSound(correct ? 'correct' : 'wrong');
-    
-    const isHardMode = String(selectedPaper).startsWith('H');
-    const newScore = correct ? score + 1 : (isHardMode ? 0 : score);
-    
-    setScore(newScore);
-    
-    setUserAnswers(prev => [...prev, {
-      questionIndex: currentIndex,
-      selectedIdx: selectedOption,
-      isSkipped: false
-    }]);
-
-    setShowFeedback(true);
-    autoSaveProgress(newScore);
+    setTimeLeft(initialTime);
   };
 
   const skipQuestion = () => {
     if (showFeedback) return;
-    setSelectedOption(-1);
-    setIsCorrect(false);
-    playSound('wrong'); 
-    
-    setUserAnswers(prev => [...prev, {
-      questionIndex: currentIndex,
-      selectedIdx: -1,
-      isSkipped: true
-    }]);
-
-    setShowFeedback(true);
-    autoSaveProgress(score);
+    nextStep();
   };
 
   const nextStep = () => {
-    setShowFeedback(false);
-    setSelectedOption(null);
     const isHardMode = String(selectedPaper).startsWith('H');
-    
+    if (isHardMode && !isCorrect) {
+      setGameState('result');
+      saveScore(false);
+      return;
+    }
     if (currentIndex + 1 < currentQuestions.length) {
-      if (isHardMode && !isCorrect) {
-         setGameState('result');
-         autoSaveProgress(score, true);
-      } else {
-         setCurrentIndex(prev => prev + 1);
-         if (isHardMode) {
-            const levelNum = parseInt(String(selectedPaper).replace('H', '')) || 1;
-            const baseTime = getBaseTimeForPro();
-            setTimeLeft(Math.max(baseTime - Math.floor(levelNum / 5), 5));
-         }
-      }
+      setCurrentIndex(prev => prev + 1);
+      setShowFeedback(false);
+      setSelectedOption(null);
+      let nextTime = 15;
+      if (String(selectedPaper).startsWith('H')) nextTime = selectedStream === 'grade5' ? 45 : 30;
+      setTimeLeft(nextTime);
     } else {
       setGameState('result');
-      autoSaveProgress(score, true);
+      saveScore(true);
     }
   };
 
-  const finishAndSaveVote = (voteType) => {
-    setUserVote(voteType);
-    autoSaveProgress(score, true, voteType);
+  const saveScore = async (isLevelSuccess = true) => {
+    if (!userName || !nameConfirmed) return;
+    const isHardMode = String(selectedPaper).startsWith('H');
+    if (isHardMode && !isLevelSuccess) return; 
+    try {
+      await saveUserScore(appId, {
+        name: userName,
+        score: score,
+        paperId: selectedPaper,
+        stream: selectedStream,
+        type: isHardMode ? 'pro' : 'normal'
+      });
+    } catch (e) { console.error("Save error:", e); }
   };
 
-  if (configError) {
+  const finishAndSaveVote = async (type) => {
+    if (userVote) return;
+    setUserVote(type);
+    try {
+      await updateStatsVote(appId, type);
+    } catch (e) { console.error("Vote error:", e); }
+  };
+
+  const isScience = ['biology', 'chemistry', 'physics', 'agri', 'combined_maths', 'physics_maths', 'chemistry_maths', 'ict_maths'].includes(selectedStream);
+  const isGrade5 = selectedStream === 'grade5';
+  const isGrade6 = String(selectedStream).startsWith('grade6_');
+  const isCommerce = ['accounting', 'business_studies', 'economics', 'ict_commerce'].includes(selectedStream);
+  const isTech = ['sft', 'et', 'bst', 'ict_tech'].includes(selectedStream);
+  const isMedia = ['sinhala', 'tamil', 'english', 'japanese', 'french', 'hindi', 'pol_sci', 'geography_arts', 'history', 'econ_arts', 'psychology', 'art', 'music', 'dance', 'drama', 'logic', 'buddhist_civ', 'christian_civ', 'media', 'ict_arts'].includes(selectedStream);
+  
+  let themeColor = 'blue';
+  let ThemeIcon = Brain;
+  let subjectTitle = getSubjectTitle(selectedStream);
+
+  if (isScience) { themeColor = 'emerald'; ThemeIcon = Microscope; }
+  else if (isGrade5) { themeColor = 'amber'; ThemeIcon = BookOpen; }
+  else if (isGrade6) { 
+    themeColor = 'emerald'; 
+    ThemeIcon = BookOpen; 
+    if (selectedStream && (selectedStream.includes('art') || selectedStream.includes('music') || selectedStream.includes('dance') || selectedStream.includes('drama'))) {
+      themeColor = 'violet';
+      ThemeIcon = Music;
+    }
+  }
+  else if (isMedia) { themeColor = 'pink'; ThemeIcon = Palette; }
+  else if (isTech) { themeColor = 'orange'; ThemeIcon = Cpu; }
+  else if (isCommerce) { themeColor = 'blue'; ThemeIcon = Calculator; }
+
+  const nextProLevelToPlay = (() => {
+    const userInLeaderboard = leaderboard.filter(e => e.name === userName && e.type === 'pro' && e.stream === selectedStream);
+    if (userInLeaderboard.length === 0) return 1;
+    const maxLvl = Math.max(...userInLeaderboard.map(e => parseInt(String(e.paperId).replace('H',''))));
+    return maxLvl + 1;
+  })();
+
+  const hardModeChamp = [...leaderboard]
+    .filter(e => e.type === 'pro')
+    .sort((a,b) => {
+       const lvlA = parseInt(String(a.paperId).replace('H',''));
+       const lvlB = parseInt(String(b.paperId).replace('H',''));
+       return lvlB - lvlA;
+    })[0];
+
+  const filteredLeaderboard = leaderboard
+    .filter(e => e.type === leaderboardTab)
+    .filter(e => !selectedStream || e.stream === selectedStream)
+    .reduce((acc, current) => {
+       const x = acc.find(item => item.name === current.name && item.stream === current.stream);
+       if (!x) return acc.concat([current]);
+       if (leaderboardTab === 'pro') {
+         const curLvl = parseInt(String(current.paperId).replace('H',''));
+         const xLvl = parseInt(String(x.paperId).replace('H',''));
+         if (curLvl > xLvl) {
+           x.paperId = current.paperId;
+           x.proLevel = curLvl;
+         }
+       } else {
+         if (current.score > x.score) x.score = current.score;
+       }
+       return acc;
+    }, [])
+    .sort((a,b) => {
+      if (leaderboardTab === 'pro') {
+        const lvlA = parseInt(String(a.paperId).replace('H',''));
+        const lvlB = parseInt(String(b.paperId).replace('H',''));
+        return lvlB - lvlA;
+      }
+      return b.score - a.score;
+    });
+
+  const displayedLeaderboard = showAllLeaderboard ? filteredLeaderboard : filteredLeaderboard.slice(0, 5);
+
+  if (!isAppLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 p-6">
-        <div className="bg-slate-900 border border-blue-500/30 p-8 rounded-[2rem] text-center max-w-md shadow-2xl">
-          <Brain className="w-16 h-16 text-blue-500 mx-auto mb-6" />
-          <h2 className="text-2xl font-black text-white mb-4 uppercase">Setup Required</h2>
-          <p className="text-slate-400 leading-relaxed mb-6">ඔබේ Firebase Config දත්ත ඇතුළත් කරන්න.</p>
-        </div>
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center gap-4">
+        <div className="text-blue-500 animate-pulse font-black text-3xl tracking-tighter">EDU QUEST PRO</div>
+        <div className="text-slate-500 font-bold text-sm uppercase tracking-widest">Loading Experience...</div>
       </div>
     );
   }
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-950"><Loader2 className="animate-spin text-blue-500 w-10 h-10" /></div>;
-
-  // Stream & Theme Logic
-  const isScience = selectedStream === 'science';
-  const isGrade5 = selectedStream === 'grade5';
-  const isMedia = selectedStream === 'media';
-  const isHardMode = String(selectedPaper).startsWith('H');
-  
-  let themeColor = 'blue';
-  let ThemeIcon = Brain;
-  if (isScience) { themeColor = 'emerald'; ThemeIcon = Microscope; }
-  if (isGrade5) { themeColor = 'amber'; ThemeIcon = BookOpen; }
-  if (isMedia) { themeColor = 'pink'; ThemeIcon = Camera; }
-
-  const gameBgClass = isHardMode ? "bg-rose-950 border-rose-600 shadow-[0_0_50px_rgba(225,29,72,0.3)]" : "bg-slate-900 border-slate-800 shadow-2xl";
-
-  const topOverall = [...leaderboard].filter(e => e.score > 0).sort((a,b) => b.score - a.score).slice(0, 10);
-  const topCommerce = leaderboard.filter(e => e.stream === 'commerce').sort((a,b) => b.score - a.score).slice(0, 5);
-  const topScience = leaderboard.filter(e => e.stream === 'science').sort((a,b) => b.score - a.score).slice(0, 5);
-  const topGrade5 = leaderboard.filter(e => e.stream === 'grade5').sort((a,b) => b.score - a.score).slice(0, 5);
-  const topMedia = leaderboard.filter(e => e.stream === 'media').sort((a,b) => b.score - a.score).slice(0, 5);
-  
-  const proLeaderboardCommerce = leaderboard.filter(e => e.stream === 'commerce' && e.proLevel > 0).sort((a,b) => b.proLevel - a.proLevel).slice(0, 5);
-  const proLeaderboardScience = leaderboard.filter(e => e.stream === 'science' && e.proLevel > 0).sort((a,b) => b.proLevel - a.proLevel).slice(0, 5);
-  const hardModeChamp = [...leaderboard].filter(e => e.proLevel > 0).sort((a,b) => b.proLevel - a.proLevel)[0];
-
-  const filteredLeaderboard = leaderboard
-    .filter(e => e.stream === selectedStream || !selectedStream)
-    .filter(e => leaderboardTab === 'pro' ? e.proLevel > 0 : e.score > 0)
-    .sort((a,b) => leaderboardTab === 'pro' ? b.proLevel - a.proLevel : b.score - a.score);
-  
-  const displayedLeaderboard = showAllLeaderboard ? filteredLeaderboard : filteredLeaderboard.slice(0, 5);
-
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans transition-all">
-      <div className="max-w-4xl mx-auto">
-        
-        {/* Navigation Bar */}
-        {gameState !== 'home' && gameState !== 'stream_select' && (
-          <div className="flex justify-between items-center mb-8 border-b border-slate-800 pb-4 animate-in fade-in">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => { setGameState('home'); setShowAllLeaderboard(false); }}>
-              <div className={`bg-${isHardMode ? 'purple' : themeColor}-600/20 p-2 rounded-xl border border-${isHardMode ? 'purple' : themeColor}-500/30 text-${isHardMode ? 'purple' : themeColor}-400`}>
-                {isHardMode ? <Sparkles className="w-6 h-6" /> : <ThemeIcon className="w-6 h-6" />}
-              </div>
-              <h1 className="text-xl font-black uppercase tracking-widest hidden sm:block text-white">
-                {isHardMode ? 'PRO MODE' : (isGrade5 ? 'Grade 5 Pro' : (isScience ? 'Science Pro' : 'Commerce Pro'))}
-              </h1>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => { setGameState('history'); setShowAllLeaderboard(false); }} className="text-xs font-bold bg-slate-900 px-3 py-2 rounded-lg border border-slate-800 hover:border-slate-600 transition-all flex items-center gap-2 text-slate-300">
-                <History className="w-4 h-4 text-slate-400" /> මගේ දත්ත
-              </button>
-              <button onClick={() => { setGameState('leaderboard'); setShowAllLeaderboard(false); }} className="text-xs font-bold bg-slate-900 px-3 py-2 rounded-lg border border-slate-800 hover:border-yellow-500/50 transition-all flex items-center gap-2 text-yellow-500">
-                <Trophy className="w-4 h-4 text-yellow-500" /> ලකුණු
-              </button>
-            </div>
+    <div className="min-h-screen bg-[#050505] text-slate-200 font-sans selection:bg-blue-500/30">
+      <div className="max-w-6xl mx-auto px-4 py-8">
+        <header className="flex justify-between items-center mb-12 border-b border-white/5 pb-8">
+          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setGameState('home')}>
+             <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-3 rounded-2xl shadow-lg shadow-blue-900/20 group-hover:scale-110 transition-transform">
+               <Brain className="w-8 h-8 text-white" />
+             </div>
+             <div>
+               <h1 className="text-2xl font-black tracking-tighter text-white">EDU QUEST <span className="text-blue-500">PRO</span></h1>
+               <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">The Ultimate Knowledge Hub</p>
+             </div>
           </div>
-        )}
+          <div className="flex gap-2">
+            <button onClick={() => setGameState('history')} className="p-3 hover:bg-white/5 rounded-2xl transition-colors text-slate-400 hover:text-white border border-transparent hover:border-white/10"><History className="w-6 h-6" /></button>
+            <button onClick={() => setGameState('leaderboard_full')} className="p-3 hover:bg-white/5 rounded-2xl transition-colors text-slate-400 hover:text-white border border-transparent hover:border-white/10"><Trophy className="w-6 h-6" /></button>
+          </div>
+        </header>
 
-        {/* HOME SCREEN - GRADE SELECTION */}
         {gameState === 'home' && (
-          <div className="flex flex-col items-center justify-center py-12 animate-in zoom-in duration-500 min-h-[80vh]">
-            
-            {/* Top Stats */}
-            <div className="flex flex-wrap justify-center gap-4 mb-6">
-               <div className="flex items-center gap-2 bg-emerald-950/40 border border-emerald-900 px-4 py-2 rounded-full text-emerald-400 text-xs font-bold">
-                 <ThumbsUp className="w-4 h-4" /> {totalLikes} Likes
-               </div>
-               <div className="flex items-center gap-2 bg-rose-950/40 border border-rose-900 px-4 py-2 rounded-full text-rose-400 text-xs font-bold">
-                 <ThumbsDown className="w-4 h-4" /> {totalUnlikes} Unlikes
-               </div>
-               {hardModeChamp && (
-                 <div className="flex items-center gap-2 bg-purple-900/30 border border-purple-500/50 px-4 py-2 rounded-full text-purple-300 text-xs font-bold animate-pulse shadow-[0_0_15px_rgba(168,85,247,0.3)]">
-                   <CrownIcon className="w-4 h-4" /> PRO Mode King: {String(hardModeChamp.name)}
-                 </div>
-               )}
-            </div>
-
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 font-bold text-sm mb-10 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
-              <Star className="w-5 h-5 fill-yellow-500 text-yellow-500" /> Edu Quest වෙත සාදරයෙන් පිළිගනිමු!
-            </div>
-
-            <h1 className="text-4xl md:text-5xl font-black mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 drop-shadow-lg text-center leading-tight">
-              {nameConfirmed ? 'ඔබේ ශ්‍රේණිය තෝරන්න' : 'Edu Quest අභියෝගය'}
-            </h1>
-            
-            {/* UNIFIED NAME INPUT & HYPE BANNER */}
-            {!nameConfirmed ? (
-              <div className={`w-full max-w-2xl transition-all duration-500 ease-in-out ${isExiting ? 'scale-90 opacity-0 blur-md translate-y-12' : 'animate-in fade-in zoom-in-95 slide-in-from-bottom-8 mb-12'}`}>
-                <div className="relative bg-slate-900/80 backdrop-blur-xl p-8 md:p-12 rounded-[3rem] border border-slate-700/50 shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden text-center group">
-                  
-                  {/* Animated Ambient Backgrounds */}
-                  <div className="absolute -top-20 -right-20 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl animate-pulse"></div>
-                  <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-yellow-500/10 rounded-full blur-3xl animate-pulse delay-700"></div>
-                  <div className="absolute inset-0 bg-gradient-to-tr from-white/[0.02] to-transparent pointer-events-none"></div>
-
-                  {/* Trophy Icon */}
-                  <div className="inline-flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900 w-20 h-20 rounded-3xl border border-slate-700 mb-8 shadow-2xl transform group-hover:scale-110 group-hover:rotate-3 transition-all duration-500 relative z-10">
-                     <Trophy className="w-10 h-10 text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)]" />
-                  </div>
-                  
-                  {/* Hype Text */}
-                  <h2 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-300 mb-4 tracking-tight relative z-10">
-                    ලංකාවේ දැනුමෙන් ඉහළම තැනට!
-                  </h2>
-                  
-                  <p className="text-slate-400 font-medium text-base leading-relaxed mb-10 max-w-lg mx-auto relative z-10">
-                    අභියෝගය භාරගන්න. නිවැරදිව පිළිතුරු දී <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 font-black px-1 text-lg drop-shadow-sm">"ලංකාවේ ප්‍රථමයන්ගේ"</span> රන් අකුරින් ලියැවෙන ජාතික ලැයිස්තුවට අදම ඔබේ නමත් එකතු කරන්න.
-                  </p>
-
-                  {/* Input Box */}
-                  <div className="relative max-w-md mx-auto z-10">
-                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-3xl blur opacity-30 group-hover:opacity-50 transition-opacity duration-500"></div>
-                    <div className="relative bg-slate-950 border border-slate-700 focus-within:border-indigo-500 focus-within:ring-4 focus-within:ring-indigo-500/20 rounded-3xl p-3 flex flex-col gap-3 transition-all shadow-xl">
-                      <input 
-                        type="text" 
-                        placeholder="ඔබේ නම (Your Name)..." 
-                        value={userName}
-                        onChange={(e) => setUserName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleNameConfirm()}
-                        className="w-full p-4 bg-transparent outline-none text-center font-black text-white text-xl placeholder:text-slate-600 disabled:opacity-50"
-                        disabled={isExiting}
-                      />
-                      <button 
-                        onClick={handleNameConfirm}
-                        disabled={!userName.trim() || isExiting}
-                        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 text-white font-black py-5 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg"
-                      >
-                        අභියෝගය අරඹන්න <ArrowRight className="w-6 h-6" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              /* GRADE SELECTION GRID */
-              <div className="w-full animate-in zoom-in duration-300 flex flex-col items-center">
-                <h2 className="text-xl font-bold text-slate-300 mb-6">සුබ පැතුම් <span className="text-indigo-400">{userName}</span>! දැන් ඔබගේ ශ්‍රේණිය තෝරාගන්න.</h2>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl">
-                  
-                  <div onClick={() => selectStream('grade5')} className="cursor-pointer group bg-amber-900/20 border border-amber-500/30 rounded-2xl p-6 hover:bg-amber-600 hover:border-amber-400 transition-all flex flex-col items-center shadow-lg">
-                    <BookOpen className="w-8 h-8 text-amber-400 group-hover:text-white mb-2" />
-                    <span className="text-xl font-black text-white">5 වසර</span>
-                  </div>
-                  
-                  {[6, 7, 8, 9, 10, 11].map(grade => (
-                    <div key={grade} onClick={() => alert("මෙම ශ්‍රේණිය සඳහා ප්‍රශ්න පත්‍ර ළඟදීම බලාපොරොත්තු වන්න!")} className="cursor-pointer group bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-slate-600 transition-all flex flex-col items-center opacity-60">
-                      <Lock className="w-6 h-6 text-slate-500 mb-2" />
-                      <span className="text-lg font-bold text-slate-400">{grade} වසර</span>
-                      <span className="text-[10px] text-slate-500 mt-1">ළඟදීම...</span>
-                    </div>
-                  ))}
-
-                  <div onClick={() => setGameState('stream_select')} className="cursor-pointer group bg-indigo-900/20 border border-indigo-500/30 rounded-2xl p-6 hover:bg-indigo-600 hover:border-indigo-400 transition-all flex flex-col items-center shadow-lg col-span-2 md:col-span-1">
-                    <GraduationCap className="w-8 h-8 text-indigo-400 group-hover:text-white mb-2" />
-                    <span className="text-lg font-black text-white">12/13 ශ්‍රේණිය</span>
-                    <span className="text-[10px] text-indigo-300 mt-1 uppercase tracking-widest">A/L Streams</span>
-                  </div>
-
-                </div>
-                <button onClick={() => setNameConfirmed(false)} className="mt-8 text-slate-500 hover:text-slate-300 text-sm font-bold underline underline-offset-4">වෙනත් නමක් ඇතුළත් කරන්න</button>
-              </div>
-            )}
-
-            {/* BUTTON TO OPEN GRAND LEADERBOARD (වෙනම ටැබ් එකකට යොමු කරන බොත්තම) */}
-            <div className="mt-16 animate-in slide-in-from-bottom-6 w-full max-w-md">
-               <button 
-                 onClick={() => setGameState('grand_leaderboard')} 
-                 className="w-full group relative bg-gradient-to-r from-yellow-600 via-amber-500 to-yellow-600 hover:from-yellow-500 hover:via-amber-400 hover:to-yellow-500 px-8 py-6 rounded-3xl font-black text-xl md:text-2xl shadow-[0_0_40px_rgba(250,204,21,0.4)] flex flex-col items-center justify-center gap-2 mx-auto transition-all hover:-translate-y-2 text-white border-2 border-yellow-400/50 overflow-hidden"
-               >
-                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
-                 <Trophy className="w-10 h-10 text-yellow-200 group-hover:scale-125 transition-transform drop-shadow-lg relative z-10" /> 
-                 <span className="relative z-10 drop-shadow-md">ලංකාවේ ප්‍රථමයන් බලාගන්න</span>
-                 <span className="text-xs font-bold text-yellow-200/80 uppercase tracking-widest relative z-10">National Top Scorers</span>
-               </button>
-            </div>
-
-          </div>
+          <HomeView 
+            totalLikes={totalLikes} 
+            totalUnlikes={totalUnlikes} 
+            hardModeChamp={hardModeChamp} 
+            userName={userName} 
+            nameConfirmed={nameConfirmed} 
+            setUserName={setUserName} 
+            handleNameConfirm={handleNameConfirm} 
+            selectStream={selectStream} 
+            setGameState={setGameState} 
+            setNameConfirmed={setNameConfirmed}
+            leaderboard={leaderboard}
+            setGrandLeaderboardTab={setGrandLeaderboardTab}
+          />
         )}
 
-        {/* GRAND LEADERBOARD SCREEN (NEW TAB) - අලුතින් සාදන ලද ප්‍රථමයන් පෙන්වන තිරය */}
-        {gameState === 'grand_leaderboard' && (() => {
-           // තෝරාගත් විෂයට අදාළ ලකුණු ලැයිස්තුව පමණක් පෙරා ගැනීම
-           const currentStreamTop = leaderboard.filter(e => e.stream === grandLeaderboardTab && e.score > 0).sort((a,b) => b.score - a.score).slice(0, 10);
-           
-           return (
-             <div className="flex flex-col items-center justify-start py-8 animate-in zoom-in duration-500 min-h-[80vh] w-full max-w-5xl mx-auto">
-               
-               <div className="w-full flex justify-between items-center mb-8">
-                 <button onClick={() => setGameState('home')} className="p-3 bg-slate-900 border border-slate-800 hover:bg-slate-800 rounded-xl flex items-center gap-2 text-slate-400 hover:text-white transition-colors shadow-lg"><ArrowLeft className="w-5 h-5" /> ආපසු මෙනුවට</button>
-               </div>
-
-               <div className="text-center mb-10">
-                 <Trophy className="w-16 h-16 text-yellow-500 mx-auto mb-4 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" />
-                 <h3 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-amber-300 to-yellow-500 drop-shadow-lg mb-4">
-                   ලංකාවේ ප්‍රථමයන්
-                 </h3>
-                 <p className="text-slate-400 font-bold text-lg">විෂයන් අනුව විශිෂ්ටයින් (Top Performers by Subject)</p>
-                 
-                 {/* HIGHLIGHTED MOTIVATIONAL BANNER */}
-                 <div className="mt-8 inline-flex items-center gap-3 bg-emerald-500/10 border-2 border-emerald-500/50 px-6 md:px-8 py-3.5 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.3)] animate-pulse hover:animate-none transition-all hover:bg-emerald-500/20 hover:scale-105 cursor-pointer" onClick={() => setGameState('home')}>
-                   <Sparkles className="w-6 h-6 text-emerald-400" />
-                   <span className="text-emerald-300 font-black text-sm md:text-base tracking-wide drop-shadow-md">
-                     ඔබත් අභියෝගය භාරගත්තා නම්, ඔබේ ස්ථානයත් මෙතැනින් බලාගන්න පුළුවන්!
-                   </span>
-                 </div>
-               </div>
-
-               {/* Subject Tabs (විෂයන් තෝරන බොත්තම්) */}
-               <div className="flex flex-wrap justify-center gap-3 mb-12 bg-slate-900/50 p-3 rounded-3xl border border-slate-800 shadow-xl">
-                  <button onClick={() => setGrandLeaderboardTab('grade5')} className={`px-6 py-3 rounded-2xl text-sm md:text-base font-black transition-all flex items-center gap-2 ${grandLeaderboardTab === 'grade5' ? 'bg-amber-600 text-white shadow-[0_0_20px_rgba(217,119,6,0.4)] scale-105' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BookOpen className="w-5 h-5"/> 5 වසර</button>
-                  <button onClick={() => setGrandLeaderboardTab('science')} className={`px-6 py-3 rounded-2xl text-sm md:text-base font-black transition-all flex items-center gap-2 ${grandLeaderboardTab === 'science' ? 'bg-emerald-600 text-white shadow-[0_0_20px_rgba(16,185,129,0.4)] scale-105' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Atom className="w-5 h-5"/> විද්‍යා (Science)</button>
-                  <button onClick={() => setGrandLeaderboardTab('commerce')} className={`px-6 py-3 rounded-2xl text-sm md:text-base font-black transition-all flex items-center gap-2 ${grandLeaderboardTab === 'commerce' ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.4)] scale-105' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Calculator className="w-5 h-5"/> වාණිජ (Commerce)</button>
-                  <button onClick={() => setGrandLeaderboardTab('media')} className={`px-6 py-3 rounded-2xl text-sm md:text-base font-black transition-all flex items-center gap-2 ${grandLeaderboardTab === 'media' ? 'bg-pink-600 text-white shadow-[0_0_20px_rgba(219,39,119,0.4)] scale-105' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Camera className="w-5 h-5"/> කලා (Media)</button>
-               </div>
-
-               {currentStreamTop.length > 0 ? (
-                 <div className="w-full flex flex-col items-center animate-in slide-in-from-bottom-8">
-                   {/* Podium for Top 3 (පළමු තුන්දෙනාට හිමි වේදිකාව) */}
-                   <div className="flex flex-col md:flex-row justify-center items-end gap-4 md:gap-6 mb-12 w-full px-4">
-                     
-                     {/* 2nd Place (Silver) */}
-                     {currentStreamTop[1] && (
-                       <div className="order-2 md:order-1 flex-1 w-full bg-gradient-to-t from-slate-800 to-slate-900 border-t-4 border-slate-300 rounded-t-3xl rounded-b-xl p-6 flex flex-col items-center text-center shadow-[0_-10px_30px_rgba(148,163,184,0.15)] hover:-translate-y-2 transition-transform">
-                         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-100 to-slate-400 flex items-center justify-center text-slate-900 font-black text-2xl mb-4 shadow-[0_0_15px_rgba(148,163,184,0.5)]">2</div>
-                         <p className="font-black text-slate-200 text-xl truncate w-full mb-2">{String(currentStreamTop[1].name)}</p>
-                         <p className="text-3xl font-black text-slate-300 drop-shadow-md">{currentStreamTop[1].score} <span className="text-sm text-slate-500">pts</span></p>
-                       </div>
-                     )}
-
-                     {/* 1st Place (Gold) */}
-                     {currentStreamTop[0] && (
-                       <div className="order-1 md:order-2 flex-[1.2] w-full bg-gradient-to-t from-yellow-900/60 via-slate-900 to-slate-900 border-t-4 border-x border-yellow-400 rounded-t-[3rem] rounded-b-2xl p-8 flex flex-col items-center text-center shadow-[0_-15px_40px_rgba(250,204,21,0.25)] z-10 hover:-translate-y-2 transition-transform md:-mt-10 relative overflow-hidden">
-                         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-yellow-500/20 via-transparent to-transparent pointer-events-none"></div>
-                         <CrownIcon className="w-12 h-12 text-yellow-400 mb-3 drop-shadow-[0_0_15px_rgba(250,204,21,0.8)] relative z-10" />
-                         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 flex items-center justify-center text-yellow-950 font-black text-4xl mb-4 shadow-[0_0_25px_rgba(250,204,21,0.6)] relative z-10">1</div>
-                         <p className="font-black text-white text-3xl truncate w-full drop-shadow-lg relative z-10 mb-2">{String(currentStreamTop[0].name)}</p>
-                         <p className="text-5xl font-black text-yellow-400 drop-shadow-[0_0_20px_rgba(250,204,21,0.5)] relative z-10">{currentStreamTop[0].score} <span className="text-lg text-yellow-600">pts</span></p>
-                       </div>
-                     )}
-
-                     {/* 3rd Place (Bronze) */}
-                     {currentStreamTop[2] && (
-                       <div className="order-3 md:order-3 flex-1 w-full bg-gradient-to-t from-amber-950/80 to-slate-900 border-t-4 border-amber-600 rounded-t-3xl rounded-b-xl p-6 flex flex-col items-center text-center shadow-[0_-10px_30px_rgba(217,119,6,0.15)] hover:-translate-y-2 transition-transform">
-                         <div className="w-14 h-14 rounded-full bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-white font-black text-2xl mb-4 shadow-[0_0_15px_rgba(217,119,6,0.5)]">3</div>
-                         <p className="font-black text-slate-200 text-xl truncate w-full mb-2">{String(currentStreamTop[2].name)}</p>
-                         <p className="text-3xl font-black text-amber-500 drop-shadow-md">{currentStreamTop[2].score} <span className="text-sm text-slate-500">pts</span></p>
-                       </div>
-                     )}
-
-                   </div>
-
-                   {/* List for 4th to 10th (අනෙකුත් ස්ථාන 4 සිට 10 දක්වා) */}
-                   {currentStreamTop.length > 3 && (
-                     <div className="w-full max-w-3xl bg-slate-900 border border-slate-800 rounded-3xl p-4 md:p-8 shadow-2xl space-y-3 relative">
-                       <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-slate-800 border border-slate-700 text-slate-400 text-xs font-bold px-6 py-2 rounded-full shadow-lg">Top 10 Players</div>
-                       {currentStreamTop.slice(3, 10).map((entry, idx) => (
-                         <div key={idx} className="flex justify-between items-center bg-slate-950/80 hover:bg-slate-800 transition-colors p-5 rounded-2xl border border-slate-800/50 group">
-                           <div className="flex items-center gap-5">
-                             <span className="w-10 h-10 rounded-xl flex items-center justify-center font-black bg-slate-900 text-slate-400 border border-slate-800 shadow-inner group-hover:text-white transition-colors text-lg">{idx + 4}</span>
-                             <span className="font-bold text-slate-200 text-base md:text-lg tracking-wide">{String(entry.name)}</span>
-                           </div>
-                           <div className="text-right">
-                             <span className="text-2xl font-black text-slate-300">{Number(entry.score)} <span className="text-xs text-slate-500 font-normal">pts</span></span>
-                           </div>
-                         </div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
-               ) : (
-                 <div className="text-center py-20 bg-slate-900/50 border border-slate-800 rounded-3xl w-full max-w-2xl mx-auto shadow-inner">
-                    <Trophy className="w-20 h-20 text-slate-700 mx-auto mb-6 opacity-50" />
-                    <p className="text-slate-400 font-bold text-xl mb-2">තවමත් දත්ත නොමැත.</p>
-                    <p className="text-slate-500">මෙම විෂය සඳහා ප්‍රථමයා වීමට අභියෝගය භාරගන්න!</p>
-                 </div>
-               )}
-
-             </div>
-           );
-        })()}
-
-        {/* STREAM SELECT (A/L) */}
         {gameState === 'stream_select' && (
-           <div className="flex flex-col items-center justify-center py-12 animate-in zoom-in duration-500 min-h-[80vh]">
-              <button onClick={() => setGameState('home')} className="self-start p-2 hover:bg-slate-900 rounded-lg mb-8 flex items-center gap-2 text-slate-400 hover:text-white"><ArrowLeft /> ආපසු</button>
-              <h1 className="text-3xl md:text-4xl font-black mb-12 text-white drop-shadow-lg text-center">
-                උසස් පෙළ අංශය තෝරන්න
-              </h1>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full max-w-5xl">
-                  
-                  {/* Arts / Media Card */}
-                  <div 
-                    onClick={() => selectStream('media')} 
-                    className="cursor-pointer group relative bg-slate-900/80 border-2 border-pink-500/30 rounded-[2.5rem] p-10 hover:border-pink-500 hover:bg-pink-900/20 hover:shadow-[0_0_40px_rgba(236,72,153,0.3)] transition-all duration-300 flex flex-col items-center text-center overflow-hidden"
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-pink-500/10 rounded-full blur-3xl group-hover:bg-pink-500/20 transition-all"></div>
-                    <div className="bg-pink-500/20 p-5 rounded-3xl mb-6 text-pink-400 group-hover:scale-110 transition-transform duration-300">
-                      <Camera className="w-16 h-16" />
-                    </div>
-                    <h2 className="text-3xl font-black text-white mb-3">කලා අංශය</h2>
-                    <p className="text-pink-200/60 font-medium mb-6">මාධ්‍ය අධ්‍යයනය (Media)</p>
-                    <span className="text-pink-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
-                  </div>
-
-                  {/* Commerce Card */}
-                  <div 
-                    onClick={() => selectStream('commerce')} 
-                    className="cursor-pointer group relative bg-slate-900/80 border-2 border-blue-500/30 rounded-[2.5rem] p-10 hover:border-blue-500 hover:bg-blue-900/20 hover:shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-300 flex flex-col items-center text-center overflow-hidden"
-                  >
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 rounded-full blur-3xl group-hover:bg-blue-500/20 transition-all"></div>
-                    <div className="bg-blue-500/20 p-5 rounded-3xl mb-6 text-blue-400 group-hover:scale-110 transition-transform duration-300">
-                      <Calculator className="w-16 h-16" />
-                    </div>
-                    <h2 className="text-3xl font-black text-white mb-3">වාණිජ අංශය</h2>
-                    <p className="text-blue-200/60 font-medium mb-6">BS | ACC | ECON</p>
-                    <span className="text-blue-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
-                  </div>
-
-                  {/* Science Card */}
-                  <div 
-                    onClick={() => selectStream('science')} 
-                    className="cursor-pointer group relative bg-slate-900/80 border-2 border-emerald-500/30 rounded-[2.5rem] p-10 hover:border-emerald-500 hover:bg-emerald-900/20 hover:shadow-[0_0_40px_rgba(16,185,129,0.3)] transition-all duration-300 flex flex-col items-center text-center overflow-hidden"
-                  >
-                    <div className="absolute top-0 left-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all"></div>
-                    <div className="bg-emerald-500/20 p-5 rounded-3xl mb-6 text-emerald-400 group-hover:scale-110 transition-transform duration-300">
-                      <Atom className="w-16 h-16" />
-                    </div>
-                    <h2 className="text-3xl font-black text-white mb-3">විද්‍යා අංශය</h2>
-                    <p className="text-emerald-200/60 font-medium mb-6">PHY | CHE | BIO</p>
-                    <span className="text-emerald-400 font-bold text-sm flex items-center gap-2 mt-auto">ඇතුල් වන්න <ArrowRight className="w-4 h-4 group-hover:translate-x-2 transition-transform" /></span>
-                  </div>
-              </div>
-           </div>
+           <ALStreamSelect 
+             onBack={goBack} 
+             onStreamSelect={selectStream} 
+             view={streamView}
+             setView={setStreamView}
+           />
         )}
 
-        {/* Start Screen (Stream inside) */}
+        {gameState === 'grade6_select' && (
+          <Grade6StreamSelect 
+            onBack={goBack}
+            onStreamSelect={selectStream}
+          />
+        )}
+
+        {gameState === 'grand_leaderboard' && (
+          <GrandLeaderboard 
+            leaderboard={leaderboard} 
+            grandLeaderboardTab={grandLeaderboardTab} 
+            setGrandLeaderboardTab={setGrandLeaderboardTab} 
+            onBack={goBack} 
+            userName={userName}
+          />
+        )}
+
         {gameState === 'start' && (
-          <div className="text-center py-12 animate-in zoom-in duration-500">
-            <div className="relative w-32 h-32 mx-auto mb-8 group">
-              <div className={`absolute inset-0 bg-${themeColor}-500/20 blur-2xl rounded-full group-hover:bg-${themeColor}-500/40 transition-all duration-500`}></div>
-              <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 w-full h-full rounded-[2.5rem] flex items-center justify-center border border-slate-700 shadow-2xl rotate-3 group-hover:rotate-0 transition-all duration-300">
-                <ThemeIcon className={`w-16 h-16 text-${themeColor}-500 drop-shadow-[0_0_15px_rgba(0,0,0,0.4)] group-hover:scale-110 transition-transform duration-300`} />
-              </div>
-            </div>
-
-            <h2 className="text-5xl md:text-6xl font-black mb-6 tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-slate-100 to-slate-400 drop-shadow-lg">
-              {isScience ? 'SCIENCE වැඩ්ඩෙක්' : (isGrade5 ? '5 වසර අභියෝගය' : (isMedia ? 'ARTS වැඩ්ඩෙක්' : 'COMMERCE වැඩ්ඩෙක්'))}<br/>
-              {!isGrade5 && <span className={`text-${themeColor}-400 text-3xl`}>වෙන්න ඕනෙද?</span>}
-            </h2>
-            
-            <p className="text-slate-400 mb-10 max-w-lg mx-auto leading-relaxed text-lg">
-              සුබ පැතුම් <b className="text-white">{userName}</b>! ප්‍රශ්න පත්‍රවල අභියෝගයට මුහුණ දී ලකුණු පුවරුවේ <span className={`text-white font-black bg-${themeColor}-500/20 px-2 py-1 rounded border border-${themeColor}-500/30`}>#1</span> ස්ථානය දිනාගන්න.
-            </p>
-            
-            <button 
-              onClick={() => setGameState('select_paper')}
-              className={`group relative bg-gradient-to-r from-${themeColor}-600 to-slate-800 hover:from-${themeColor}-500 hover:to-slate-700 px-12 py-5 rounded-2xl font-black text-xl shadow-[0_0_40px_rgba(0,0,0,0.4)] flex items-center gap-3 mx-auto transition-all hover:scale-105 text-white overflow-hidden border border-${themeColor}-500/50`}
-            >
-              <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out"></div>
-              <span className="relative drop-shadow-md">අභියෝගය භාරගන්න</span> <ArrowRight className="relative group-hover:translate-x-2 transition-transform drop-shadow-md" />
-            </button>
-            
-            <button onClick={() => setGameState('home')} className="mt-8 text-slate-500 hover:text-slate-300 text-sm font-bold underline underline-offset-4">ආපසු මෙනුවට</button>
-          </div>
+          <StartView 
+            themeColor={themeColor} 
+            ThemeIcon={ThemeIcon} 
+            subjectTitle={subjectTitle} 
+            isGrade5={isGrade5} 
+            userName={userName} 
+            onBack={goBack}
+            setGameState={setGameState} 
+          />
         )}
 
-        {/* Paper Selection */}
         {gameState === 'select_paper' && (
-          <div className="animate-in fade-in duration-500">
-            <div className="flex items-center gap-4 mb-8">
-              <button onClick={() => setGameState('start')} className="p-2 hover:bg-slate-900 rounded-lg text-white"><ArrowLeft /></button>
-              <h2 className="text-2xl font-black uppercase text-white">සාමාන්‍ය ප්‍රශ්න පත්‍ර</h2>
-            </div>
-            
-            <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
-              {Array.from({ length: 40 }, (_, i) => {
-                // Determine unlocked papers based on stream
-                const isPaperUnlocked = isGrade5 ? i < 1 : i < 3; 
-                return (
-                <button
-                  key={i}
-                  onClick={() => selectPaper(i + 1)}
-                  className={`aspect-square border rounded-xl flex flex-col items-center justify-center transition-all group ${isPaperUnlocked ? `bg-${themeColor}-900/20 border-${themeColor}-800 hover:bg-${themeColor}-600 hover:border-${themeColor}-400 hover:-translate-y-1 shadow-lg` : 'bg-slate-900 border-slate-800 hover:bg-slate-800 opacity-50'}`}
-                >
-                  <span className={`text-xs font-bold uppercase ${isPaperUnlocked ? `text-${themeColor}-400 group-hover:text-white` : 'text-slate-500'}`}>Paper</span>
-                  <span className="text-xl font-black text-white">{i + 1}</span>
-                  {!isPaperUnlocked && <span className="text-[8px] text-slate-500 mt-1">ළඟදීම</span>}
-                </button>
-              )})}
-            </div>
-            
-            {/* PRO MODE SECTION (Sequential Unlock) */}
-            <div className="mt-12 border-t border-slate-800 pt-8 animate-in slide-in-from-bottom-4">
-               <h3 className={`text-xl font-black uppercase text-purple-400 mb-6 flex items-center gap-2`}>
-                 <Sparkles className="w-6 h-6 animate-pulse" /> PRO MODE (Advanced Levels)
-               </h3>
-               <p className="text-slate-400 text-sm mb-6">තත්පර {isGrade5 ? '45' : '15'}යි! එක පාරින්ම හරි උත්තරය දුන්නොත් පමණක් ඊළඟ Level එක Unlock වේ!</p>
-               <div className="grid grid-cols-4 md:grid-cols-5 lg:grid-cols-8 gap-3">
-                  {Array.from({ length: 40 }, (_, i) => {
-                     const lvlNum = i + 1;
-                     const isUnlocked = lvlNum <= nextProLevelToPlay;
-                     return (
-                       <button 
-                          key={lvlNum} 
-                          onClick={() => isUnlocked && selectPaper(`H${lvlNum}`)} 
-                          className={`aspect-square rounded-xl flex flex-col items-center justify-center transition-all group ${isUnlocked ? 'bg-purple-900/20 border border-purple-500/30 hover:bg-purple-800/80 hover:border-purple-400 shadow-[0_0_15px_rgba(168,85,247,0.1)] hover:shadow-[0_0_20px_rgba(168,85,247,0.4)] cursor-pointer hover:-translate-y-1' : 'bg-slate-950 border border-slate-800 opacity-60 cursor-not-allowed'}`}
-                       >
-                         {isUnlocked ? (
-                           <>
-                             <span className="text-purple-300 group-hover:text-white font-bold uppercase text-[10px] mb-1 tracking-widest flex items-center gap-1"><Unlock className="w-3 h-3"/> Level</span>
-                             <span className="text-xl font-black text-white">{lvlNum}</span>
-                           </>
-                         ) : (
-                           <>
-                             <Lock className="w-5 h-5 text-slate-600 mb-1" />
-                             <span className="text-[10px] font-bold text-slate-600">LOCKED</span>
-                           </>
-                         )}
-                       </button>
-                     )
-                  })}
-               </div>
-            </div>
-            
+          <PaperSelectionView 
+            themeColor={themeColor} 
+            isGrade5={isGrade5} 
+            isGrade6={isGrade6}
+            selectedStream={selectedStream}
+            availablePaperIds={availablePaperIds}
+            paperTitle={subjectTitle}
+            nextProLevelToPlay={nextProLevelToPlay} 
+            selectPaper={selectPaper} 
+            onBack={() => setGameStateNoHistory('start')}
+          />
+        )}
+
+        {gameState === 'playing' && currentQuestions.length > 0 && (
+          <QuizView 
+            selectedPaper={selectedPaper} 
+            currentIndex={currentIndex} 
+            currentQuestions={currentQuestions} 
+            isHardMode={String(selectedPaper).startsWith('H')} 
+            timeLeft={timeLeft} 
+            score={score} 
+            showFeedback={showFeedback} 
+            selectedOption={selectedOption} 
+            isCorrect={isCorrect} 
+            selectOption={(idx) => { if (!showFeedback) setSelectedOption(Number(idx)); }} 
+            checkAnswer={checkAnswer} 
+            skipQuestion={skipQuestion} 
+            nextStep={nextStep} 
+            setGameState={setGameState} 
+            funnyCorrectMessage={funnyCorrectMessage} 
+            funnyWrongMessage={funnyWrongMessage} 
+          />
+        )}
+
+        {gameState === 'playing' && currentQuestions.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mb-4" />
+            <h2 className="text-xl font-bold text-white mb-2">ප්‍රශ්න පත්‍රය සූදානම් වෙමින් පවතී...</h2>
+            <p className="text-slate-400 text-sm mb-6">ප්‍රශ්න පත්‍රය ලෝඩ් වීමට මඳ වේලාවක් ගත විය හැක. කරුණාකර රැඳී සිටින්න.</p>
+            <button onClick={() => setGameState('select_paper')} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-xl font-bold transition-all">නැවත යන්න</button>
           </div>
         )}
 
-        {/* Playing UI */}
-        {gameState === 'playing' && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-4">
-             <div className={`flex justify-between items-center p-4 rounded-2xl border shadow-xl bg-slate-900 ${isHardMode ? 'border-purple-500/50 shadow-[0_0_20px_rgba(168,85,247,0.2)]' : 'border-slate-800'}`}>
-                <button onClick={() => setGameState('select_paper')} className="text-xs font-bold text-slate-400 flex items-center gap-1 hover:text-white uppercase transition-colors"><X className="w-4 h-4" /> Stop</button>
-                <div className="text-center">
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest">{isHardMode ? 'PRO LEVEL' : 'PAPER'} {String(selectedPaper).replace('H','')}</span>
-                  <span className={`text-sm font-black text-white`}>{currentIndex + 1} / {currentQuestions.length}</span>
-                </div>
-                <div className="text-right">
-                  <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-widest">Score</span>
-                  <span className={`text-sm font-black ${isHardMode ? 'text-purple-400' : 'text-emerald-400'}`}>{score}</span>
-                </div>
-             </div>
-
-             <div className={`rounded-[2rem] overflow-hidden transition-all bg-slate-900 border ${isHardMode ? 'border-purple-500/30' : 'border-slate-800'} shadow-2xl`}>
-                
-                {/* TIMER UI FOR PRO MODE */}
-                {isHardMode && !showFeedback && (
-                  <div className="px-8 pt-6 pb-2 bg-purple-950/10">
-                     <div className="flex justify-between text-xs font-bold text-slate-400 mb-2">
-                        <span className="flex items-center gap-1"><Timer className="w-4 h-4"/> කාලය (Time Left)</span>
-                        <span className={timeLeft <= 5 ? 'text-rose-500 animate-pulse text-lg' : 'text-purple-400 text-lg'}>{timeLeft}s</span>
-                     </div>
-                     <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                        <div className={`h-full ${timeLeft <= 5 ? 'bg-rose-500' : 'bg-purple-500'} transition-all duration-1000 ease-linear`} style={{ width: `${(timeLeft / Math.max(getBaseTimeForPro() - Math.floor(parseInt(String(selectedPaper).replace('H', '')) / 5), 5)) * 100}%` }}></div>
-                     </div>
-                  </div>
-                )}
-
-                <div className={`p-8 border-b ${isHardMode ? 'border-purple-900/50 bg-purple-950/20' : 'border-slate-800 bg-slate-800/30'}`}>
-                  <h3 className="text-xl md:text-2xl font-bold leading-relaxed text-white">{currentQuestions[currentIndex].question}</h3>
-                </div>
-                <div className="p-8 space-y-3">
-                  {currentQuestions[currentIndex].options.map((opt, i) => {
-                    let bgClass = "bg-slate-950/50 border-slate-800 text-slate-300 hover:border-slate-600 hover:bg-slate-800";
-                    let icon = null;
-
-                    if (!showFeedback) {
-                       if (selectedOption === i) {
-                          bgClass = `bg-${isHardMode ? 'purple' : themeColor}-500/20 border-${isHardMode ? 'purple' : themeColor}-500 text-${isHardMode ? 'purple' : themeColor}-100 shadow-[0_0_15px_rgba(255,255,255,0.2)]`; 
-                       }
-                    } else {
-                       if (i === currentQuestions[currentIndex].answer) {
-                          bgClass = "bg-emerald-500/20 border-emerald-500 text-emerald-200 font-bold shadow-[0_0_20px_rgba(16,185,129,0.3)]"; 
-                          icon = <CheckCircle2 className="w-5 h-5 text-emerald-500 inline mr-2 shrink-0" />;
-                       } else if (selectedOption === i) {
-                          bgClass = "bg-rose-600/40 border-rose-500 text-rose-100"; 
-                          icon = <XCircle className="w-5 h-5 text-rose-400 inline mr-2 shrink-0" />;
-                       } else {
-                          bgClass = "bg-slate-950/30 border-slate-800/50 text-slate-500 opacity-50"; 
-                       }
-                    }
-
-                    return (
-                      <button
-                        key={i}
-                        onClick={() => selectOption(i)}
-                        disabled={showFeedback}
-                        className={`w-full text-left p-5 rounded-2xl border-2 transition-all flex items-center ${bgClass}`}
-                      >
-                        {icon} <span className="font-semibold">{String(opt)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                
-                <div className={`p-8 border-t ${isHardMode ? 'border-purple-900/50 bg-purple-950/30' : 'border-slate-800 bg-slate-950/30'}`}>
-                  {showFeedback ? (
-                    <div className="animate-in fade-in slide-in-from-bottom-2">
-                      <div className={`p-4 rounded-xl mb-6 border ${isCorrect ? 'bg-emerald-500/10 border-emerald-500/30' : selectedOption === -1 ? 'bg-slate-800/50 border-slate-700' : 'bg-rose-500/10 border-rose-500/30'}`}>
-                        
-                        {isHardMode && isCorrect && <p className="text-yellow-400 font-black text-lg mb-2 flex items-center gap-2"><Flame className="text-yellow-500"/> {funnyCorrect[Math.floor(Math.random() * funnyCorrect.length)]}</p>}
-                        {isHardMode && !isCorrect && selectedOption !== -1 && <p className="text-rose-400 font-black text-lg mb-2 flex items-center gap-2"><Skull className="text-rose-500"/> {funnyWrong[Math.floor(Math.random() * funnyWrong.length)]}</p>}
-
-                        <p className="text-slate-300 text-sm italic leading-relaxed">
-                          <span className={`font-bold mr-2 ${isCorrect ? 'text-emerald-400' : selectedOption === -1 ? 'text-slate-400' : 'text-rose-400'}`}>
-                            {!isHardMode ? (isCorrect ? 'නිවැරදියි!' : selectedOption === -1 ? 'මඟ හරින ලදි.' : 'වැරදියි!') : (userAnswers.find(ua => ua.questionIndex === currentIndex)?.timeOut ? 'කාලය අවසන්! (TIME IS UP!)' : selectedOption === -1 ? 'මඟ හරින ලදි.' : (isCorrect ? 'නිවැරදියි!' : 'වැරදියි! LEVEL FAILED!'))} විවරණය:
-                          </span> 
-                          {currentQuestions[currentIndex].explanation}
-                        </p>
-                      </div>
-                      <button onClick={nextStep} className={`w-full ${isHardMode && !isCorrect ? 'bg-rose-600 hover:bg-rose-500 shadow-rose-900/50' : (isHardMode ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-900/50' : `bg-${themeColor}-600 hover:bg-${themeColor}-500 shadow-${themeColor}-900/20`)} text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 uppercase tracking-widest transition-all shadow-lg`}>
-                        {isHardMode && !isCorrect ? 'අවසන් කරන්න (Game Over)' : (currentIndex + 1 === currentQuestions.length ? 'අවසන් කරන්න (Finish)' : 'ඊළඟ ප්‍රශ්නය (Next)')} <ArrowRight />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-4">
-                      <button onClick={skipQuestion} className={`w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-4 rounded-xl transition-all`}>
-                        මඟ හරින්න
-                      </button>
-                      <button 
-                        onClick={checkAnswer} 
-                        disabled={selectedOption === null}
-                        className={`w-2/3 ${isHardMode ? 'bg-purple-600 hover:bg-purple-500 shadow-purple-900/50' : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-900/50'} disabled:bg-slate-800 disabled:text-slate-500 text-white font-black py-4 rounded-xl transition-all uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg`}
-                      >
-                        පරීක්ෂා කරන්න (Check) <CheckCircle2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-             </div>
-          </div>
-        )}
-
-        {/* Result Screen */}
         {gameState === 'result' && (
-          <div className={`border rounded-[3rem] p-10 text-center animate-in zoom-in shadow-2xl bg-slate-900 ${isHardMode && score !== currentQuestions.length ? 'border-rose-800' : (isHardMode ? 'border-purple-500/50' : 'border-slate-800')}`}>
-            {isHardMode && score !== currentQuestions.length ? (
-               <Skull className="w-20 h-20 text-rose-500 mx-auto mb-6 drop-shadow-[0_0_15px_rgba(225,29,72,0.3)] animate-bounce" />
-            ) : (
-               <Award className="w-20 h-20 text-yellow-500 mx-auto mb-6 drop-shadow-[0_0_15px_rgba(234,179,8,0.3)]" />
-            )}
-            
-            <h2 className="text-3xl font-black mb-2 uppercase text-white">
-               {isHardMode && score !== currentQuestions.length ? `අයියෝ ${userName}! 😢` : `විශිෂ්ටයි ${userName}!`}
-            </h2>
-            <p className="text-slate-300 mb-2">ඔබ {isHardMode ? `PRO Level ${String(selectedPaper).replace('H','')}` : (isGrade5 ? '5 වසර ප්‍රශ්න පත්‍රය' : (isScience ? 'විද්‍යා ප්‍රශ්න පත්‍රය' : (isMedia ? 'මාධ්‍ය අධ්‍යයනය ප්‍රශ්න පත්‍රය' : 'වාණිජ ප්‍රශ්න පත්‍රය')))} අවසන් කළා.</p>
-            <div className={`text-7xl font-black ${isHardMode && score !== currentQuestions.length ? 'text-rose-500' : (isHardMode ? 'text-purple-400' : `text-${themeColor}-500`)} my-8 drop-shadow-[0_0_20px_rgba(0,0,0,0.3)]`}>{score} <span className="text-xl text-slate-400">/ {currentQuestions.length} ලකුණු</span></div>
-            
-            {/* Auto Save Message */}
-            <div className="bg-slate-950/50 text-emerald-400 text-sm font-bold p-3 rounded-full inline-flex items-center gap-2 mb-8 border border-emerald-900/50 shadow-lg">
-               <CheckCircle2 className="w-4 h-4" /> ඔබේ ලකුණු Leaderboard එකට ස්වයංක්‍රීයව එකතු විය!
-            </div>
-
-            {!isHardMode && (
-              <div className="mb-8 p-6 bg-slate-950/60 rounded-2xl border border-slate-800 max-w-sm mx-auto">
-                <p className="text-slate-200 font-bold mb-4">ඔබ මේ අභියෝගයට කැමතිද?</p>
-                <div className="flex justify-center gap-6">
-                  <button 
-                    onClick={() => finishAndSaveVote('like')}
-                    className={`flex flex-col items-center gap-2 px-8 py-4 rounded-xl transition-all border-2 ${userVote === 'like' ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400 scale-105' : 'border-slate-700 text-slate-400 hover:border-emerald-500/50 hover:text-emerald-400'}`}
-                  >
-                    <ThumbsUp className={`w-8 h-8 ${userVote === 'like' ? 'fill-emerald-500' : ''}`} />
-                    <span className="text-xs font-black uppercase tracking-widest">Like</span>
-                  </button>
-                  <button 
-                    onClick={() => finishAndSaveVote('dislike')}
-                    className={`flex flex-col items-center gap-2 px-8 py-4 rounded-xl transition-all border-2 ${userVote === 'dislike' ? 'border-rose-500 bg-rose-500/20 text-rose-400 scale-105' : 'border-slate-700 text-slate-400 hover:border-rose-500/50 hover:text-rose-400'}`}
-                  >
-                    <ThumbsDown className={`w-8 h-8 ${userVote === 'dislike' ? 'fill-rose-500' : ''}`} />
-                    <span className="text-xs font-black uppercase tracking-widest">Unlike</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4 max-w-sm mx-auto">
-              {isHardMode && score === currentQuestions.length && (
-                 <button onClick={() => selectPaper(`H${parseInt(String(selectedPaper).replace('H','')) + 1}`)} className="w-full bg-purple-600 hover:bg-purple-500 py-4 rounded-2xl font-black text-white transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(168,85,247,0.4)]">
-                    <Sparkles className="w-5 h-5"/> ඊළඟ Level එකට යන්න
-                 </button>
-              )}
-              {isHardMode && score !== currentQuestions.length && (
-                 <button onClick={() => selectPaper(selectedPaper)} className="w-full bg-rose-600 hover:bg-rose-500 py-4 rounded-2xl font-black text-white transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(225,29,72,0.4)]">
-                    <RefreshCw className="w-5 h-5"/> නැවත උත්සාහ කරන්න (Retry)
-                 </button>
-              )}
-              <button onClick={() => setGameState(isHardMode ? 'select_paper' : 'home')} className={`w-full bg-slate-800 hover:bg-slate-700 py-4 rounded-2xl font-black text-white transition-all flex items-center justify-center gap-2 border border-slate-700`}>
-                 <LayoutGrid className="w-5 h-5"/> {isHardMode ? 'අනෙකුත් Levels බලන්න' : 'මුල් මෙනුවට'}
-              </button>
-            </div>
-
-            {/* Answer Review Section */}
-            <div className="mt-12 border-t border-slate-800/50 pt-8">
-              <button 
-                onClick={() => setShowReview(!showReview)}
-                className={`w-full bg-slate-950/50 hover:bg-slate-800 py-4 rounded-2xl font-black transition-all flex justify-center items-center gap-2 ${isHardMode ? 'text-purple-400' : 'text-blue-400'} border border-slate-800`}
-              >
-                <ListChecks /> {showReview ? 'විවරණ පත්‍රිකාව වසන්න' : 'පිළිතුරු සහ විවරණ පත්‍රිකාව බලන්න'}
-              </button>
-              
-              {showReview && (
-                <div className="mt-8 space-y-6 text-left animate-in slide-in-from-top-4">
-                  {currentQuestions.map((q, qIndex) => {
-                    const userAnswer = userAnswers.find(ua => ua.questionIndex === qIndex);
-                    const selectedIdx = userAnswer ? userAnswer.selectedIdx : -1;
-                    
-                    return (
-                      <div key={q.id} className="bg-slate-950 p-6 rounded-2xl border border-slate-800">
-                        <p className="font-bold text-lg mb-4 text-white"><span className="text-slate-500 mr-2">{qIndex + 1}.</span>{q.question}</p>
-                        <div className="space-y-2">
-                          {q.options.map((opt, optIdx) => {
-                            let bgClass = "bg-slate-900 border-slate-800 text-slate-400";
-                            let icon = null;
-                            
-                            if (optIdx === q.answer) {
-                              bgClass = "bg-emerald-500/20 border-emerald-500 text-emerald-200";
-                              icon = <CheckCircle2 className="w-5 h-5 text-emerald-500 inline mr-2 shrink-0" />;
-                            } else if (optIdx === selectedIdx && selectedIdx !== -1) {
-                              bgClass = "bg-rose-500/20 border-rose-500 text-rose-200";
-                              icon = <XCircle className="w-5 h-5 text-rose-500 inline mr-2 shrink-0" />;
-                            }
-
-                            return (
-                              <div key={optIdx} className={`p-3 rounded-xl border flex items-center ${bgClass}`}>
-                                 {icon} <span>{String(opt)}</span>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <div className="mt-4 p-4 bg-slate-900 border border-slate-800 rounded-xl">
-                          <p className="text-sm text-slate-300"><span className={`font-bold ${isHardMode ? 'text-purple-400' : `text-${themeColor}-400`}`}>විවරණය:</span> {q.explanation}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-          </div>
+          <ResultView 
+            score={score}
+            currentQuestions={currentQuestions}
+            isHardMode={String(selectedPaper).startsWith('H')}
+            isCorrect={isCorrect}
+            userVote={userVote}
+            finishAndSaveVote={finishAndSaveVote}
+            setGameState={setGameState}
+            showReview={showReview}
+            setShowReview={setShowReview}
+            userAnswers={userAnswers}
+            selectedPaper={selectedPaper}
+            selectPaper={selectPaper}
+          />
         )}
 
-        {/* History Screen */}
         {gameState === 'history' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden animate-in fade-in">
-             <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
-               <h2 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3 text-white">
-                 <History className="text-blue-400" /> මගේ දත්ත
-               </h2>
-               <button onClick={() => setGameState('home')} className="p-2 bg-slate-950 border border-slate-800 rounded-lg hover:text-rose-400 transition-colors text-white"><X /></button>
-             </div>
-             <div className="p-4 max-h-[500px] overflow-y-auto">
-                {userHistory.length === 0 ? <p className="p-16 text-center text-slate-500 font-bold">තවමත් දත්ත නැත...</p> : 
-                  userHistory.map((e, idx) => (
-                    <div key={e.id} className="flex items-center justify-between p-5 hover:bg-slate-800/50 rounded-2xl mb-1 border-b border-slate-800/50 last:border-0">
-                      <div className="flex items-center gap-5">
-                        <span className="w-8 h-8 rounded-lg flex items-center justify-center font-black bg-slate-950 text-slate-500">{idx + 1}</span>
-                        <div>
-                          <p className="font-bold text-slate-200">{String(e.paperId).startsWith('H') ? `PRO Level ${String(e.paperId).replace('H','')}` : `Paper ${e.paperId}`} <span className={`text-[10px] px-2 py-0.5 rounded ml-2 border ${e.stream === 'science' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : (e.stream === 'grade5' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : (e.stream === 'media' ? 'bg-pink-500/20 text-pink-400 border-pink-500/30' : 'bg-blue-500/20 text-blue-400 border-blue-500/30'))}`}>{e.stream === 'science' ? 'SCI' : (e.stream === 'grade5' ? 'G5' : (e.stream === 'media' ? 'MED' : 'COM'))}</span></p>
-                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{new Date(e.timestamp).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <span className={`text-2xl font-black ${String(e.paperId).startsWith('H') ? 'text-purple-400' : 'text-blue-500'}`}>{Number(e.score)} <span className="text-xs text-slate-500">ලකුණු</span></span>
-                    </div>
-                  ))
-                }
-             </div>
-             <div className="p-8 border-t border-slate-800 bg-slate-950/30">
-               <button onClick={() => setGameState('home')} className="w-full bg-slate-800 py-4 rounded-xl font-black hover:bg-slate-700 transition-all text-white">මුල් මෙනුවට</button>
-             </div>
-          </div>
+          <HistoryView 
+            userHistory={leaderboard.filter(e => e.name === userName).sort((a, b) => b.timestamp - a.timestamp)} 
+            setGameState={setGameState} 
+          />
         )}
 
-        {/* Leaderboard Screen */}
-        {gameState === 'leaderboard' && (
-          <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden animate-in fade-in">
-             <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-800/20">
-               <h2 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3 text-white">
-                 <Trophy className="text-yellow-500" /> සම්පූර්ණ ලකුණු පුවරුව
-               </h2>
-               <button onClick={() => setGameState('home')} className="p-2 bg-slate-950 border border-slate-800 rounded-lg hover:text-rose-400 transition-colors text-white"><X /></button>
-             </div>
-             
-             {/* Type Filter */}
-             <div className="flex gap-2 p-4 bg-slate-950 border-b border-slate-800 justify-center">
-                <button onClick={() => {setLeaderboardTab('normal'); setShowAllLeaderboard(false);}} className={`px-6 py-2 rounded-full text-sm font-bold transition-all ${leaderboardTab === 'normal' ? 'bg-blue-600 text-white shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>Normal Papers</button>
-                <button onClick={() => {setLeaderboardTab('pro'); setShowAllLeaderboard(false);}} className={`px-6 py-2 rounded-full text-sm font-bold transition-all flex items-center gap-2 ${leaderboardTab === 'pro' ? 'bg-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]' : 'bg-slate-800 text-slate-400 hover:text-white'}`}><Sparkles className="w-4 h-4"/> PRO Mode</button>
-             </div>
-
-             {/* Stream Filter */}
-             <div className="flex flex-wrap gap-2 p-4 bg-slate-950 border-b border-slate-800">
-                <button onClick={() => {setSelectedStream(null); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${!selectedStream ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}>සියල්ල</button>
-                <button onClick={() => {setSelectedStream('grade5'); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'grade5' ? 'bg-amber-600/20 text-amber-400 border border-amber-500/30' : 'text-slate-500 hover:text-slate-300'}`}><BookOpen className="w-4 h-4"/> 5 වසර</button>
-                <button onClick={() => {setSelectedStream('commerce'); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'commerce' ? 'bg-blue-600/20 text-blue-400 border border-blue-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Calculator className="w-4 h-4"/> Commerce</button>
-                <button onClick={() => {setSelectedStream('science'); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'science' ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Atom className="w-4 h-4"/> Science</button>
-                <button onClick={() => {setSelectedStream('media'); setShowAllLeaderboard(false);}} className={`px-4 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${selectedStream === 'media' ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30' : 'text-slate-500 hover:text-slate-300'}`}><Camera className="w-4 h-4"/> Media (Arts)</button>
-             </div>
-
-             <div className="p-4 max-h-[500px] overflow-y-auto">
-                {displayedLeaderboard.length === 0 ? <p className="p-16 text-center text-slate-500 font-bold">තවමත් දත්ත නැත...</p> : 
-                  displayedLeaderboard.map((e, idx) => (
-                    <div key={e.name+e.stream} className="flex items-center justify-between p-5 hover:bg-slate-800/50 rounded-2xl mb-1 border-b border-slate-800/50 last:border-0 animate-in fade-in slide-in-from-bottom-2">
-                      <div className="flex items-center gap-5">
-                        <span className={`w-8 h-8 rounded-lg flex items-center justify-center font-black ${idx < 3 ? 'bg-yellow-500 text-slate-900 shadow-lg shadow-yellow-500/40' : 'bg-slate-950 text-slate-500'}`}>{idx + 1}</span>
-                        <div>
-                          <p className="font-bold text-slate-200">{String(e.name)}</p>
-                          <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-1">{leaderboardTab === 'pro' ? 'Max Level Reached' : 'Total Score'} <span className={`text-[9px] px-1.5 py-0.5 rounded ml-1 border ${e.stream === 'science' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : (e.stream === 'grade5' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : (e.stream === 'media' ? 'text-pink-400 border-pink-500/30 bg-pink-500/10' : 'text-blue-400 border-blue-500/30 bg-blue-500/10'))}`}>{e.stream === 'science' ? 'SCI' : (e.stream === 'grade5' ? 'G5' : (e.stream === 'media' ? 'MED' : 'COM'))}</span></p>
-                        </div>
-                      </div>
-                      <span className={`text-2xl font-black ${leaderboardTab === 'pro' ? 'text-purple-400' : 'text-blue-500'}`}>{leaderboardTab === 'pro' ? `Lvl ${Number(e.proLevel)}` : Number(e.score)} <span className="text-xs text-slate-500">{leaderboardTab === 'pro' ? '' : 'ලකුණු'}</span></span>
-                    </div>
-                  ))
-                }
-                
-                {/* Show All Button */}
-                {!showAllLeaderboard && filteredLeaderboard.length > 5 && (
-                  <div className="text-center mt-4">
-                     <button onClick={() => setShowAllLeaderboard(true)} className="text-slate-400 hover:text-white text-sm font-bold bg-slate-950 px-6 py-3 rounded-full border border-slate-800 transition-all">
-                       සම්පූර්ණ ලැයිස්තුවම බලන්න (View All)
-                     </button>
-                  </div>
-                )}
-             </div>
-             <div className="p-8 border-t border-slate-800 bg-slate-950/30">
-               <button onClick={() => setGameState('home')} className="w-full bg-slate-800 py-4 rounded-xl font-black hover:bg-slate-700 transition-all text-white">මුල් මෙනුවට</button>
-             </div>
-          </div>
+        {gameState === 'leaderboard_full' && (
+          <LeaderboardView 
+            leaderboardTab={leaderboardTab} 
+            setLeaderboardTab={setLeaderboardTab} 
+            setShowAllLeaderboard={setShowAllLeaderboard} 
+            selectedStream={selectedStream} 
+            setSelectedStream={setSelectedStream} 
+            displayedLeaderboard={displayedLeaderboard} 
+            filteredLeaderboard={filteredLeaderboard} 
+            showAllLeaderboard={showAllLeaderboard} 
+            setGameState={setGameState} 
+          />
         )}
-        
       </div>
-      <footer className="mt-12 text-center text-slate-800 text-[10px] font-black tracking-[0.5em] uppercase">EDU QUEST PRO • 2024</footer>
+      <footer className="mt-12 text-center text-slate-800 text-[10px] font-black tracking-[0.5em] uppercase pb-8">EDU QUEST PRO ⬢ 2024</footer>
     </div>
-  );
-}
-
-// A simple crown icon component for the champion badge
-function CrownIcon(props) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>
-    </svg>
   );
 }
