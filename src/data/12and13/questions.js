@@ -1,17 +1,12 @@
 // Data Banks
-import { grade5QuestionBank as g5 } from '../grade5/questions';
-import { grade6MathsBank as grade6MathsAllBank } from '../grade6/ganithaya_paper1';
+import { grade5QuestionBank as g5 } from '../grade5/questions.js';
+import { grade6MathsBank as grade6MathsAllBank } from '../grade6/ganithaya_paper1.js';
 export const grade6MathsBank = grade6MathsAllBank || [];
-import { orientalMusicBank } from '../grade6/sangeethayaperadiga300';
-import { orientalMusicBank100 } from '../grade6/sangeethayaperadiga100';
-import { grade6OrientalMusicPapers5to20Bank, grade6OrientalMusicPapers21to40Bank } from '../grade6/sangeethaya_papers_5_40';
+import { grade6EasternMusicBank } from '../grade6/eastern_music.js';
 
 export const westernMusicBank = [];
 const g6OrientalMusic = [
-  ...(orientalMusicBank || []), 
-  ...(orientalMusicBank100 || []),
-  ...(grade6OrientalMusicPapers5to20Bank || []),
-  ...(grade6OrientalMusicPapers21to40Bank || [])
+  ...(grade6EasternMusicBank || [])
 ];
 
 // ==========================================
@@ -30,11 +25,11 @@ export const fullCommerceBank = commerceQuestionBank;
 // ==========================================
 // 2. SCIENCE QUESTION BANK (Imported)
 // ==========================================
-import { newBiologyQuestions as bioBank } from './biology_data';
-import { grade6SciencePaper1Bank } from '../grade6/vidyava_paper1';
-import { grade6SciencePaper2Bank } from '../grade6/vidyava_paper2';
-import { grade6SciencePapers3to10Bank, grade6SciencePapers11to20Bank } from '../grade6/vidyava_papers_3_20';
-import { grade6SciencePapers21to30Bank, grade6SciencePapers31to40Bank } from '../grade6/vidyava_papers_21_40';
+import { newBiologyQuestions as bioBank } from './biology_data.js';
+import { grade6SciencePaper1Bank } from '../grade6/vidyava_paper1.js';
+import { grade6SciencePaper2Bank } from '../grade6/vidyava_paper2.js';
+import { grade6SciencePapers3to10Bank, grade6SciencePapers11to20Bank } from '../grade6/vidyava_papers_3_20.js';
+import { grade6SciencePapers21to30Bank, grade6SciencePapers31to40Bank } from '../grade6/vidyava_papers_21_40.js';
 
 export const fullScienceBank = bioBank || [];
 export const fullGrade6ScienceBank = [
@@ -52,6 +47,11 @@ export const fullGrade6ScienceBank = [
 export const fullGrade6OrientalMusicBank = g6OrientalMusic;
 
 export const fullGrade6WesternMusicBank = westernMusicBank || [];
+
+// ==========================================
+// GRADE 6 සිංහල
+// ==========================================
+export { grade6SinhalaBank as fullGrade6SinhalaBank } from '../grade6/sinhala.js';
 
 // ==========================================
 // 4. GRADE 5 BANK

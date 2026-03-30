@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
@@ -12,8 +12,16 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Use standard Firestore without complex settings to minimize aborted requests
-const db = getFirestore(app);
+/**
+ * Initialize Firestore with persistence and optimized connectivity settings
+ * - experimentalAutoDetectLongPolling: true helps avoid net::ERR_ABORTED on unstable networks
+ * - localCache: enables offline persistence for a smoother user experience
+ */
+const db = initializeFirestore(app, {
+  experimentalAutoDetectLongPolling: true,
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+});
+
 const auth = getAuth(app);
 
 export { db, auth };

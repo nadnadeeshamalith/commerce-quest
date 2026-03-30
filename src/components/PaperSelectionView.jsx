@@ -10,6 +10,7 @@ export default function PaperSelectionView({
   paperTitle,
   onBack,
   nextProLevelToPlay,
+  quizBankReady = true,
   selectPaper
 }) {
   const getDisplayTitle = () => {
@@ -18,6 +19,8 @@ export default function PaperSelectionView({
     if (selectedStream === 'grade6_western_music') return 'අපරදිග සංගීතය';
     if (selectedStream === 'grade6_maths') return '6 වසර ගණිතය';
     if (selectedStream === 'grade6_science') return '6 වසර විද්‍යාව';
+    if (selectedStream === 'grade6_sinhala') return '6 වසර සිංහල';
+    if (selectedStream === 'grade6_english') return '6 වසර ඉංග්‍රීසි';
     return 'සාමාන්‍ය ප්‍රශ්න පත්‍ර';
   };
   const displayTitle = paperTitle || getDisplayTitle();
@@ -67,8 +70,8 @@ export default function PaperSelectionView({
          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2 md:gap-3">
             {Array.from({ length: 40 }, (_, i) => {
                const lvlNum = i + 1;
-               const isUnlocked = isGrade6 
-                 ? (lvlNum >= 31 && lvlNum <= 40 ? (lvlNum <= (nextProLevelToPlay > 30 ? nextProLevelToPlay : 31)) : false)
+               const isUnlocked = isGrade6
+                 ? (quizBankReady && (lvlNum >= 31 && lvlNum <= 40 ? (lvlNum <= (nextProLevelToPlay > 30 ? nextProLevelToPlay : 31)) : false))
                  : (lvlNum <= nextProLevelToPlay);
                return (
                  <button 

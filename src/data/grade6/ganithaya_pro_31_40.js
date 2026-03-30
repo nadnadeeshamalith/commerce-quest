@@ -10,6 +10,17 @@ const shuffle = (array) => {
   return newArr;
 };
 
+const gcd = (a, b) => {
+  let x = Math.abs(Number(a));
+  let y = Math.abs(Number(b));
+  while (y) {
+    const t = y;
+    y = x % y;
+    x = t;
+  }
+  return x || 1;
+};
+
 const makeMCQ = ({ id, paperId, level, question, options, answer, explanation, svg }) => {
   return {
     id,
@@ -42,9 +53,11 @@ export const genProLevels = () => {
     const paperId = `H${lvl}`;
     const numQuestions = 3 + (lvl - 31) * 2; // Level 31=3, 32=5, ...
     
+    const topicOcc = Array(topics.length).fill(0);
     for (let i = 1; i <= numQuestions; i++) {
       const id = 6000000 + lvl * 100 + i;
       const topicIndex = i % topics.length;
+      const occ = topicOcc[topicIndex]++;
       
       let qData = {};
       // Advanced Level Questions
@@ -66,21 +79,62 @@ export const genProLevels = () => {
           explanation: "පළමුව වරහන් ඇතුළත සුළු කර ඉන්පසු ගුණ කරන්න."
         };
       } else if (topicIndex === 2) {
+        // Make the decimal value (and hence the question text) unique per paper + per occurrence.
+        const den = 4 + ((lvl + occ) % 6); // 4..9
+        const numRaw = 1 + ((lvl * 2 + occ * 3) % Math.max(1, den - 1)); // 1..den-1
+        const g = gcd(numRaw, den);
+        const sn = numRaw / g;
+        const sd = den / g;
+        const dec = (sn / sd).toFixed(2);
+        const correctOption = `${sn}/${sd}`;
+
+        const reduceFrac = (n, d) => {
+          const gg = gcd(n, d);
+          return [n / gg, d / gg];
+        };
+
+        const candidates = [
+          reduceFrac(sn, sd + 1),
+          reduceFrac(sn + 1, sd),
+          reduceFrac(Math.max(1, sn - 1), sd + 2),
+          reduceFrac(sn + 2, sd + 1),
+        ].map(([n, d]) => `${n}/${d}`);
+
+        const distractors = [];
+        for (const opt of candidates) {
+          if (opt === correctOption) continue;
+          if (distractors.includes(opt)) continue;
+          distractors.push(opt);
+          if (distractors.length >= 3) break;
+        }
+        while (distractors.length < 3) {
+          const n2 = (sn + distractors.length + 1);
+          const d2 = sd + distractors.length + 1;
+          const [rn2, rd2] = reduceFrac(n2, d2);
+          const opt = `${rn2}/${rd2}`;
+          if (opt !== correctOption && !distractors.includes(opt)) distractors.push(opt);
+        }
+
         qData = {
-          question: `0.75 ට සමාන සරලම භාගය කුමක්ද?`,
-          options: ["3/4", "1/4", "1/2", "3/5"],
+          question: `${dec} ට සමාන සරලම භාගය කුමක්ද?`,
+          options: [correctOption, ...distractors.slice(0, 3)],
           answer: 0,
-          explanation: "0.75 = 75/100 = 3/4."
+          explanation: `${dec} = ${correctOption}.`
         };
       } else if (topicIndex === 3) {
+        // Make meters value unique per paper + occurrence.
+        const meters = 0.75 + ((lvl + occ) % 7) * 0.25; // 0.75, 1.00, 1.25, ...
+        const cm = meters * 100; // multiples of 25 => integer
+        const metersStr = Number(meters.toFixed(2)).toString();
         qData = {
-          question: `මීටර් 1.25 ක් සෙන්ටිමීටර් වලින් කීයද?`,
-          options: ["125cm", "12.5cm", "1250cm", "1.25cm"],
+          question: `මීටර් ${metersStr} ක් සෙන්ටිමීටර් වලින් කීයද?`,
+          options: [`${cm}cm`, `${cm / 10}cm`, `${cm * 10}cm`, `${metersStr}cm`],
           answer: 0,
-          explanation: "1m = 100cm බැවින් 1.25m = 125cm."
+          explanation: `${metersStr}m = ${cm}cm.`
         };
       } else if (topicIndex === 4) {
-        const r = lvl % 10 + 5;
+        // Make radius unique per occurrence within the paper.
+        const r = lvl % 10 + 5 + occ;
         qData = {
           question: `වෘත්තයක අරය ${r}cm නම් එහි විෂ්කම්භය කීයද?`,
           options: [r * 2 + "cm", r + "cm", r / 2 + "cm", r * 4 + "cm"],
@@ -88,9 +142,11 @@ export const genProLevels = () => {
           explanation: "විෂ්කම්භය යනු අරය මෙන් දෙගුණයකි."
         };
       } else {
+        // Make the average value unique per occurrence within the paper.
+        const avg = lvl + occ;
         qData = {
-          question: `සංඛ්‍යා 5 ක සාමාන්‍යය ${lvl} නම්, එම සංඛ්‍යා වල එකතුව කීයද?`,
-          options: [lvl * 5, lvl + 5, lvl / 5, lvl * 10],
+          question: `සංඛ්‍යා 5 ක සාමාන්‍යය ${avg} නම්, එම සංඛ්‍යා වල එකතුව කීයද?`,
+          options: [avg * 5, avg + 5, avg / 5, avg * 10],
           answer: 0,
           explanation: "එකතුව = සාමාන්‍යය × සංඛ්‍යා ගණන."
         };

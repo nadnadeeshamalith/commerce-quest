@@ -33,6 +33,59 @@ import ResultView from './components/ResultView';
 import HistoryView from './components/HistoryView';
 import LeaderboardView from './components/LeaderboardView';
 import Grade6StreamSelect from './components/Grade6StreamSelect';
+import { grade6SinhalaBank } from './data/grade6/sinhala.js';
+import { englishpaper1 } from './data/grade6/englishpaper1.js';
+import { englishpaper2 } from './data/grade6/englishpaper2.js';
+import { englishpaper3 } from './data/grade6/englishpaper3.js';
+import { englishpaper4 } from './data/grade6/englishpaper4.js';
+import { englishpaper5 } from './data/grade6/englishpaper5.js';
+import { englishpaper6 } from './data/grade6/englishpaper6.js';
+import { englishpaper7 } from './data/grade6/englishpaper7.js';
+import { englishpaper8 } from './data/grade6/englishpaper8.js';
+import { englishpaper9 } from './data/grade6/englishpaper9.js';
+import { englishpaper10 } from './data/grade6/englishpaper10.js';
+import { englishpaper11 } from './data/grade6/englishpaper11.js';
+import { englishpaper12 } from './data/grade6/englishpaper12.js';
+import { englishpaper13 } from './data/grade6/englishpaper13.js';
+import { englishpaper14 } from './data/grade6/englishpaper14.js';
+import { englishpaper15 } from './data/grade6/englishpaper15.js';
+import { englishpaper16 } from './data/grade6/englishpaper16.js';
+import { englishpaper17 } from './data/grade6/englishpaper17.js';
+import { englishpaper18 } from './data/grade6/englishpaper18.js';
+import { englishpaper19 } from './data/grade6/englishpaper19.js';
+import { englishpaper20 } from './data/grade6/englishpaper20.js';
+import { englishpaper21 } from './data/grade6/englishpaper21.js';
+import { englishpaper22 } from './data/grade6/englishpaper22.js';
+import { englishpaper23 } from './data/grade6/englishpaper23.js';
+import { englishpaper24 } from './data/grade6/englishpaper24.js';
+import { englishpaper25 } from './data/grade6/englishpaper25.js';
+import { englishpaper26 } from './data/grade6/englishpaper26.js';
+import { englishpaper27 } from './data/grade6/englishpaper27.js';
+import { englishpaper28 } from './data/grade6/englishpaper28.js';
+import { englishpaper29 } from './data/grade6/englishpaper29.js';
+import { englishpaper30 } from './data/grade6/englishpaper30.js';
+import { englishpaper31 } from './data/grade6/englishpaper31.js';
+import { englishpaper32 } from './data/grade6/englishpaper32.js';
+import { englishpaper33 } from './data/grade6/englishpaper33.js';
+import { englishpaper34 } from './data/grade6/englishpaper34.js';
+import { englishpaper35 } from './data/grade6/englishpaper35.js';
+import { englishpaper36 } from './data/grade6/englishpaper36.js';
+import { englishpaper37 } from './data/grade6/englishpaper37.js';
+import { englishpaper38 } from './data/grade6/englishpaper38.js';
+import { englishpaper39 } from './data/grade6/englishpaper39.js';
+import { englishpaper40 } from './data/grade6/englishpaper40.js';
+import { historypaper1 } from './data/grade6/historypaper1.js';
+import { historypaper2 } from './data/grade6/historypaper2.js';
+import { historypaper3 } from './data/grade6/historypaper3.js';
+import { historypaper4 } from './data/grade6/historypaper4.js';
+import { historypaper5 } from './data/grade6/historypaper5.js';
+import { historypaper6 } from './data/grade6/historypaper6.js';
+import { historypaper7 } from './data/grade6/historypaper7.js';
+import { historypaper8 } from './data/grade6/historypaper8.js';
+import { historypaper9 } from './data/grade6/historypaper9.js';
+import { historypaper10 } from './data/grade6/historypaper10.js';
+import { historypaper11 } from './data/grade6/historypaper11.js';
+import { historypaper12 } from './data/grade6/historypaper12.js';
 
 // Data Imports
 import { 
@@ -47,7 +100,7 @@ import {
   fullGrade6OrientalMusicBank,
   fullGrade6WesternMusicBank,
   fullGrade6ScienceBank
-} from './data/12and13/questions';
+} from './data/12and13/questions.js';
 
 // Helper for subject titles
 const getSubjectTitle = (stream) => {
@@ -228,6 +281,16 @@ export default function App() {
     else if (selectedStream === 'grade6_science') bank = fullGrade6ScienceBank || [];
     else if (selectedStream === 'grade6_oriental_music') bank = fullGrade6OrientalMusicBank || [];
     else if (selectedStream === 'grade6_western_music') bank = fullGrade6WesternMusicBank || [];
+    else if (selectedStream === 'grade6_sinhala') bank = grade6SinhalaBank || [];
+    else if (selectedStream === 'grade6_english') {
+      // Lightweight placeholders only (prevents lag from concatenating 40 papers).
+      // availablePaperIds is derived from q.paperId, and selectPaper uses direct mapping.
+      bank = Array.from({ length: 40 }, (_, idx) => ({ paperId: idx + 1 }));
+    }
+    else if (selectedStream === 'grade6_history') {
+      // History currently has papers 1-12.
+      bank = Array.from({ length: 12 }, (_, idx) => ({ paperId: idx + 1 }));
+    }
     else if (selectedStream === 'chemistry' || selectedStream === 'chemistry_maths') bank = fullChemistryBank || [];
     else if (selectedStream === 'physics' || selectedStream === 'physics_maths') bank = fullPhysicsBank || [];
     else if (selectedStream === 'agri') bank = fullAgriBank || [];
@@ -336,43 +399,135 @@ export default function App() {
   };
 
   const selectPaper = (paperId) => {
-    setSelectedPaper(paperId);
-    
-    const bank = getCurrentBank();
-    let sessionPool = [];
+    const activeBank = getCurrentBank();
+    const isPro = String(paperId).startsWith('H');
+    let paperQuestions;
 
-    // Simplified Paper Selection Logic
-    const isHardMode = String(paperId).startsWith('H');
-    if (!isHardMode) {
-      const pool = bank.filter(q => String(q.paperId) === String(paperId));
-      sessionPool = shuffleArray(pool);
+    if (selectedStream === 'grade6_english') {
+      const grade6EnglishPapers = {
+        1: englishpaper1,
+        2: englishpaper2,
+        3: englishpaper3,
+        4: englishpaper4,
+        5: englishpaper5,
+        6: englishpaper6,
+        7: englishpaper7,
+        8: englishpaper8,
+        9: englishpaper9,
+        10: englishpaper10,
+        11: englishpaper11,
+        12: englishpaper12,
+        13: englishpaper13,
+        14: englishpaper14,
+        15: englishpaper15,
+        16: englishpaper16,
+        17: englishpaper17,
+        18: englishpaper18,
+        19: englishpaper19,
+        20: englishpaper20,
+        21: englishpaper21,
+        22: englishpaper22,
+        23: englishpaper23,
+        24: englishpaper24,
+        25: englishpaper25,
+        26: englishpaper26,
+        27: englishpaper27,
+        28: englishpaper28,
+        29: englishpaper29,
+        30: englishpaper30,
+        31: englishpaper31,
+        32: englishpaper32,
+        33: englishpaper33,
+        34: englishpaper34,
+        35: englishpaper35,
+        36: englishpaper36,
+        37: englishpaper37,
+        38: englishpaper38,
+        39: englishpaper39,
+        40: englishpaper40
+      };
+
+      const paperNum = isPro ? Number(String(paperId).replace('H', '')) : Number(paperId);
+      paperQuestions = grade6EnglishPapers[paperNum];
+
+      if (!paperQuestions || paperQuestions.length === 0) {
+        alert(`මෙම ප්‍රශ්න පත්‍රය තවමත් සකස් කර නොමැත.`);
+        return;
+      }
+
+      // Grade 6 English: randomize order each time.
+      const shuffled = [...paperQuestions];
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      paperQuestions = shuffled.slice(0, isPro ? 10 : 40);
+    } else if (selectedStream === 'grade6_history') {
+      const grade6HistoryPapers = {
+        1: historypaper1,
+        2: historypaper2,
+        3: historypaper3,
+        4: historypaper4,
+        5: historypaper5,
+        6: historypaper6,
+        7: historypaper7,
+        8: historypaper8,
+        9: historypaper9,
+        10: historypaper10,
+        11: historypaper11,
+        12: historypaper12,
+      };
+
+      const selectedHistoryPaper = grade6HistoryPapers[paperId];
+
+      if (!selectedHistoryPaper || selectedHistoryPaper.length === 0) {
+        alert(`මෙම ප්‍රශ්න පත්‍රය තවමත් සකස් කර නොමැත.`);
+        return;
+      }
+
+      // Shuffle so order changes every open.
+      paperQuestions = [...selectedHistoryPaper].sort(() => 0.5 - Math.random());
+    } else if (selectedStream === 'grade6_sinhala') {
+      paperQuestions = (activeBank || []).filter((q) => String(q?.paperId) === String(paperId));
     } else {
-      // PRO Mode logic
-      const shuffled = shuffleArray(bank);
-      const lvlNum = parseInt(String(paperId).replace('H', ''));
-      let qCount = 3;
-      if (lvlNum === 2) qCount = 5;
-      else if (lvlNum === 3) qCount = 7;
-      else if (lvlNum >= 4) qCount = 5 + (lvlNum - 4) * 2;
-      sessionPool = shuffled.slice(0, qCount);
+      // Keep existing logic for other streams.
+      paperQuestions = (activeBank || []).filter((q) => String(q?.paperId) === String(paperId));
     }
 
-    setCurrentQuestions(sessionPool);
-    setCurrentIndex(0);
-    setScore(0);
-    setGameState('playing');
-    setShowFeedback(false);
-    setSelectedOption(null);
-    setUserAnswers([]);
-    setShowReview(false);
-    setUserVote(null);
-    
-    let initialTime = 15;
-    if (String(paperId).startsWith('H')) {
-      initialTime = selectedStream === 'grade5' ? 45 : 30;
+    if (!paperQuestions || paperQuestions.length === 0) {
+      alert(`මෙම විෂය සඳහා තවමත් ප්‍රශ්න ඇතුළත් කර නැත. ළඟදීම බලාපොරොත්තු වන්න!`);
+      return;
     }
-    setTimeLeft(initialTime);
-  };
+
+    setSelectedPaper(paperId);
+
+    if (selectedStream !== 'grade6_english') {
+      // STRICT RANDOMIZATION & NO DUPLICATES: Fisher–Yates shuffle full pool, then slice
+      // (`.sort(() => Math.random() - 0.5)` is biased; Fisher–Yates is uniform.)
+      const shuffled = [...paperQuestions];
+      for (let i = shuffled.length - 1; i > 0; i -= 1) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      paperQuestions = shuffled.slice(0, isPro ? 10 : 40);
+    }
+
+    setCurrentQuestions(paperQuestions);
+     setCurrentIndex(0);
+     setScore(0);
+     setGameState('playing');
+     setShowFeedback(false);
+     setSelectedOption(null);
+     setUserAnswers([]);
+     setShowReview(false);
+     setUserVote(null);
+     
+     let initialTime = 15;
+     if (String(paperId).startsWith('H')) {
+       initialTime = selectedStream === 'grade5' ? 45 : 30;
+     }
+     setTimeLeft(initialTime);
+   };
 
   const skipQuestion = () => {
     if (showFeedback) return;
@@ -500,10 +655,18 @@ export default function App() {
     );
   }
 
+  const nameGateActive = gameState === 'home' && !nameConfirmed;
+
   return (
     <div className="min-h-screen bg-[#050505] text-slate-200 font-sans selection:bg-blue-500/30">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        <header className="flex justify-between items-center mb-12 border-b border-white/5 pb-8">
+        <header
+          className={
+            nameGateActive
+              ? 'flex justify-between items-center mb-12 border-b border-white/5 pb-8 blur-md sm:blur-lg opacity-[0.42] pointer-events-none select-none scale-[0.99] transition-[filter,opacity,transform] duration-300 ease-out'
+              : 'flex justify-between items-center mb-12 border-b border-white/5 pb-8 transition-[filter,opacity,transform] duration-300 ease-out'
+          }
+        >
           <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setGameState('home')}>
              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-3 rounded-2xl shadow-lg shadow-blue-900/20 group-hover:scale-110 transition-transform">
                <Brain className="w-8 h-8 text-white" />
@@ -582,7 +745,8 @@ export default function App() {
             selectedStream={selectedStream}
             availablePaperIds={availablePaperIds}
             paperTitle={subjectTitle}
-            nextProLevelToPlay={nextProLevelToPlay} 
+            nextProLevelToPlay={nextProLevelToPlay}
+            quizBankReady={(getCurrentBank() || []).length > 0}
             selectPaper={selectPaper} 
             onBack={() => setGameStateNoHistory('start')}
           />

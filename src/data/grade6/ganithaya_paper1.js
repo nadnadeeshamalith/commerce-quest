@@ -533,7 +533,10 @@ const genPaper = (paperId) => {
 
     if (topic === 5) {
       const a = (paperId % 4) + 1;
-      const b = (i % 5) + 2;
+      // For this topic, i values repeat in steps of 10 within the same paper,
+      // so (i % 5) becomes constant and duplicates happen. Use an occurrence index instead.
+      const occ5 = Math.floor((i - 6) / 10); // i is 6,16,26,36
+      const b = (occ5 % 5) + 2;
       const frac = `${a}/${b}`;
       const pct = Math.round((a / b) * 100);
       out.push(makeMCQ({
@@ -593,12 +596,15 @@ const genPaper = (paperId) => {
     }
 
     const x = (paperId % 7) + 4;
-    const rhs = x + 9 + (i % 5);
+    // For the final "topic 9" block, i values repeat in steps of 10,
+    // so (i % 5) becomes constant and duplicates happen. Use an occurrence index instead.
+    const occ9 = Math.floor((i - 10) / 10); // i is 10,20,30,40
+    const rhs = x + 9 + occ9;
     out.push(makeMCQ({
       id,
       paperId,
       level: lvl,
-      question: `සමීකරණය x + ${9 + (i % 5)} = ${rhs} හි x අගය කීයද?`,
+      question: `සමීකරණය x + ${9 + occ9} = ${rhs} හි x අගය කීයද?`,
       correct: x,
       distractors: [x + 1, x - 1, x + 2]
     }));
@@ -699,8 +705,14 @@ const genPaper11to20 = (paperId) => {
 
     if (topic === 4) {
       const whole = (paperId % 4) + 1;
-      const dec1 = Number(`${whole}.${(i * 3) % 10}`);
-      const dec2 = Number(`${whole}.${(i * 7) % 10}`);
+      // For this topic, i values repeat in steps of 10 within the same paper,
+      // so (i * 3) % 10 becomes constant and duplicates happen.
+      const occ4 = Math.floor((i - 5) / 10); // i is 5,15,25,35
+      const baseDigit = paperId % 10;
+      const d1 = (baseDigit + occ4) % 10;
+      const d2 = (baseDigit + occ4 + 3) % 10;
+      const dec1 = Number(`${whole}.${d1}`);
+      const dec2 = Number(`${whole}.${d2}`);
       const correct = dec1 > dec2 ? dec1.toFixed(1) : dec2.toFixed(1);
       const smaller = dec1 > dec2 ? dec2.toFixed(1) : dec1.toFixed(1);
       out.push(makeMCQ({
@@ -800,7 +812,10 @@ const genPaper11to20 = (paperId) => {
           explanation: `අරමුණ: කෝණ වර්ග හඳුනාගැනීම (ජ්‍යාමිතිය).`
         }));
       } else {
-        const s = (paperId % 5) + 4;
+        // For this specific branch (pick === 2), i values that hit this branch within
+        // a single paper repeat in a way that makes `s` constant -> duplicate question text.
+        const occ7 = Math.floor((i - 8) / 10); // i is 8,18,28,38 for topic 7
+        const s = (paperId % 5) + 4 + occ7;
         out.push(makeMCQ({
           id,
           paperId,
@@ -816,9 +831,12 @@ const genPaper11to20 = (paperId) => {
 
     if (topic === 8) {
       const a = (paperId % 4) + 2;
-      const b = (i % 5) + 2;
+      // This topic repeats in steps of 10 within a paper, so (i % 5) becomes constant.
+      // Use occurrence index to vary values and avoid duplicates.
+      const occ8 = Math.floor((i - 9) / 10); // i is 9,19,29,39
+      const b = (occ8 % 5) + 2;
       const c = (paperId % 3) + 2;
-      const d = (i % 4) + 1;
+      const d = (occ8 % 4) + 1;
       const data = [a, b, c, d, a];
       const mode = a;
       const sum = data.reduce((s, v) => s + v, 0);
@@ -837,7 +855,9 @@ const genPaper11to20 = (paperId) => {
     }
 
     const start = (paperId % 6) + 2;
-    const diff = (i % 4) + 3;
+    // Topic 9 i values repeat in steps of 10, causing i % 4 to toggle and duplicates.
+    const occ9 = Math.floor((i - 10) / 10); // i is 10,20,30,40
+    const diff = (occ9 % 4) + 3;
     const term = start + diff * 6;
     out.push(makeMCQ({
       id,

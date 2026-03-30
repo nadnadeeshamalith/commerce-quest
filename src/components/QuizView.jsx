@@ -1,6 +1,11 @@
 import React from 'react';
 import { X, Timer, CircleCheck, CircleX, ArrowRight, Flame, Skull, Loader2 } from 'lucide-react';
 
+const stripQuestionLabel = (text) => {
+  // Removes prefixes like "(7666): " from rendered question text.
+  return String(text ?? '').replace(/\s*\(\d+\)\s*:\s*/, ' ').trim();
+};
+
 export default function QuizView({
   selectedPaper,
   currentIndex,
@@ -20,6 +25,19 @@ export default function QuizView({
   funnyWrongMessage
 }) {
   const question = currentQuestions[currentIndex];
+  const displayQuestion = stripQuestionLabel(question?.question);
+
+  // #region agent log
+  if (
+    typeof window !== 'undefined' &&
+    question?.question &&
+    displayQuestion !== question.question &&
+    !window.__eduQuestStripLogged
+  ) {
+    window.__eduQuestStripLogged = true;
+    fetch('http://127.0.0.1:7863/ingest/dc30585a-40ae-491f-8315-b1eef3f05f0a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '2e40c9' }, body: JSON.stringify({ sessionId: '2e40c9', location: 'QuizView.jsx:stripQuestionLabel', message: 'Stripped numeric label from question', data: { before: String(question.question).slice(0, 120), after: String(displayQuestion).slice(0, 120) }, timestamp: Date.now(), hypothesisId: 'H1', runId: 'strip-ui' }) }).catch(() => { });
+  }
+  // #endregion
 
   if (!question) {
     return (
@@ -72,7 +90,7 @@ export default function QuizView({
           </div>
           
           <h2 className="text-2xl md:text-3xl font-bold mb-6 text-white leading-snug">
-            {currentQuestions[currentIndex].question}
+            {displayQuestion}
           </h2>
 
           {currentQuestions[currentIndex].svg && (

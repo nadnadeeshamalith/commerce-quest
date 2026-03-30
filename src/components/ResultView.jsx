@@ -1,6 +1,10 @@
 import React from 'react';
 import { Skull, Award, CircleCheck, ThumbsUp, ThumbsDown, Sparkles, RefreshCw, LayoutGrid, ListCheck, CircleX } from 'lucide-react';
 
+const stripQuestionLabel = (text) => {
+  return String(text ?? '').replace(/\s*\(\d+\)\s*:\s*/, ' ').trim();
+};
+
 export default function ResultView({
   score,
   currentQuestions,
@@ -15,6 +19,16 @@ export default function ResultView({
   selectedPaper,
   selectPaper
 }) {
+  // #region agent log
+  if (typeof window !== 'undefined' && !window.__eduQuestResultStripLogged) {
+    const firstLabeled = (currentQuestions || []).find((q) => /\(\d+\)\s*:/.test(String(q?.question || '')));
+    if (firstLabeled) {
+      window.__eduQuestResultStripLogged = true;
+      fetch('http://127.0.0.1:7863/ingest/dc30585a-40ae-491f-8315-b1eef3f05f0a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '2e40c9' }, body: JSON.stringify({ sessionId: '2e40c9', location: 'ResultView.jsx:stripQuestionLabel', message: 'Result view has labeled question and strip helper active', data: { before: String(firstLabeled.question).slice(0, 120), after: String(stripQuestionLabel(firstLabeled.question)).slice(0, 120) }, timestamp: Date.now(), hypothesisId: 'H2', runId: 'strip-ui-result' }) }).catch(() => { });
+    }
+  }
+  // #endregion
+
   return (
     <div className="text-center py-12 animate-in zoom-in duration-500 min-h-[80vh]">
        {isHardMode && !isCorrect ? (
@@ -133,7 +147,7 @@ export default function ResultView({
                   <div key={idx} className={`p-6 rounded-2xl border ${isUserCorrect ? 'bg-emerald-900/10 border-emerald-900/30' : (answer ? 'bg-rose-900/10 border-rose-900/30' : 'bg-slate-950 border-slate-900')}`}>
                     <h4 className="font-bold text-slate-100 mb-4 flex items-start gap-3">
                       <span className="bg-slate-800 text-slate-400 w-6 h-6 rounded flex items-center justify-center text-[10px] shrink-0 mt-1">{idx + 1}</span>
-                      {q.question}
+                      {stripQuestionLabel(q.question)}
                     </h4>
                     <div className="grid gap-2 mb-4">
                       {q.options.map((opt, oIdx) => (

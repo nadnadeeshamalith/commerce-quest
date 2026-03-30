@@ -40,10 +40,12 @@ export const genAdvancedPapers = (startPaperId, endPaperId) => {
   
   for (let paperId = startPaperId; paperId <= endPaperId; paperId++) {
     const paperQuestions = [];
+    const topicOcc = Array(topics.length).fill(0);
     
     for (let i = 1; i <= 40; i++) {
       const id = paperId * 1000 + i;
       const topicIndex = i % topics.length;
+      const occ = topicOcc[topicIndex]++;
       const topic = topics[topicIndex];
       const level = i <= 24 ? "easy" : (i <= 36 ? "normal" : "hard");
       
@@ -72,12 +74,27 @@ export const genAdvancedPapers = (startPaperId, endPaperId) => {
           qData = { question: `${x * y} ÷ ${x} = ?`, correct: y, distractors: [y + 1, y - 1, 2] };
         }
       } else if (topicIndex === 2) { // Fractions/Decimals
-        const den = (i % 5) + 2;
-        const num = 1;
+        // Ensure uniqueness within the paper by using an occurrence counter.
+        // Also include paperId in parameters so questions don't repeat across different paperIds.
+        const den = 2 + ((paperId + occ) % 8); // 2..9
+        const num = 1 + ((paperId * 2 + occ * 3) % Math.max(1, den - 1)); // 1..den-1
+        const correct = (num / den).toFixed(2);
+        // Keep distractors different from correct (avoid same value after rounding).
+        const d1 = (num / (den + 1)).toFixed(2);
+        const d2 = ((num + 1) / den).toFixed(2);
+        const d3 = (num / (den + 2)).toFixed(2);
+        const distractorsBase = [d1, d2, d3].filter((d) => d !== correct);
+        const distractors = distractorsBase.length >= 3
+          ? distractorsBase.slice(0, 3)
+          : [
+            ...distractorsBase,
+            (num / (den + 3)).toFixed(2),
+            (num / (den + 4)).toFixed(2),
+          ].filter((d) => d !== correct).slice(0, 3);
         qData = {
           question: `භාගය ${num}/${den} දශමයක් ලෙස දැක්වූ විට:`,
-          correct: (num / den).toFixed(2),
-          distractors: [(num / (den + 1)).toFixed(2), (num / (den + 2)).toFixed(2), (1.5 / den).toFixed(2)],
+          correct,
+          distractors,
           explanation: "භාගයක් දශමයක් කිරීමට ලවය හරයෙන් බෙදන්න."
         };
       } else if (topicIndex === 3) { // Measurements
@@ -91,9 +108,11 @@ export const genAdvancedPapers = (startPaperId, endPaperId) => {
           qData = { question: `පැය ${val % 5 + 1} මිනිත්තු වලින් කීයද?`, correct: (val % 5 + 1) * 60 + " min", distractors: [(val % 5 + 1) * 30 + " min", (val % 5 + 1) * 100 + " min", "60 min"] };
         }
       } else if (topicIndex === 4) { // Geometry
-        const side = (i % 6) + 3;
-        const shape = i % 2 === 0 ? "සමචතුරස්‍රයක" : "සමපාද ත්‍රිකෝණයක";
-        const perim = i % 2 === 0 ? side * 4 : side * 3;
+        // Make side/shape depend on both paperId and occurrence to avoid repeated question text.
+        const side = 3 + ((paperId * 2 + occ) % 10); // 3..12
+        const isSquare = occ % 2 === 0;
+        const shape = isSquare ? "සමචතුරස්‍රයක" : "සමපාද ත්‍රිකෝණයක";
+        const perim = isSquare ? side * 4 : side * 3;
         qData = {
           question: `පැත්තක දිග ${side}cm වූ ${shape} පරිමිතිය කීයද?`,
           correct: perim + "cm",
@@ -101,11 +120,21 @@ export const genAdvancedPapers = (startPaperId, endPaperId) => {
           explanation: "පරිමිතිය යනු වටේ ඇති සියලුම පැති වල එකතුවයි."
         };
       } else { // Data
-        const tally = (i % 10) + 1;
+        const tally = 1 + ((paperId * 3 + occ) % 10); // 1..10
+        const distractors = [];
+        const tryAdd = (v) => {
+          if (v === tally) return;
+          if (distractors.includes(v)) return;
+          distractors.push(v);
+        };
+        tryAdd(tally + 1);
+        tryAdd(tally - 1 < 1 ? tally + 2 : tally - 1);
+        tryAdd(5 === tally ? 6 : 5);
+        while (distractors.length < 3) tryAdd(tally + 2 + distractors.length);
         qData = {
           question: `ටැලි සටහන් (Tally marks) ${tally} ක් නිරූපණය කිරීමට ඉරි කීයක් ඇඳිය යුතුද?`,
           correct: tally,
-          distractors: [tally + 1, tally - 1, 5],
+          distractors,
           explanation: "සෑම 5 වන ඉරම හරස් ඉරක් ලෙස ඇඳේ."
         };
       }
