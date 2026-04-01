@@ -61,6 +61,20 @@ export const updateStatsVote = async (appId, type) => {
   }
 };
 
+// Feedback / Comments Operations
+export const saveUserComment = async (appId, commentData) => {
+  try {
+    const commentsRef = collection(db, 'artifacts', appId, 'public', 'data', 'comments');
+    return await addDoc(commentsRef, {
+      ...commentData,
+      timestamp: Date.now()
+    });
+  } catch (e) {
+    console.error("Error saving comment:", e);
+    throw e;
+  }
+};
+
 // Question Bank Operations (Future Expansion)
 export const fetchQuestionsFromDB = async (stream, paperId) => {
   // Placeholder for fetching from Firestore instead of local files

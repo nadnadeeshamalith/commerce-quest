@@ -1,5 +1,4 @@
 // Data Banks
-import { grade5QuestionBank as g5 } from '../grade5/questions.js';
 import { grade6MathsBank as grade6MathsAllBank } from '../grade6/ganithaya_paper1.js';
 export const grade6MathsBank = grade6MathsAllBank || [];
 import { grade6EasternMusicBank } from '../grade6/eastern_music.js';
@@ -56,10 +55,7 @@ export { grade6SinhalaBank as fullGrade6SinhalaBank } from '../grade6/sinhala.js
 // ==========================================
 // 4. GRADE 5 BANK
 // ==========================================
-export const fullGrade5Bank = (g5 || []).map((q, i) => ({ 
-  ...q, 
-  paperId: Math.floor(i / 40) + 1 
-}));
+export const fullGrade5Bank = [];
 
 // Fallbacks and Additional Exports required by App.jsx
 export const fullMediaBank = [];

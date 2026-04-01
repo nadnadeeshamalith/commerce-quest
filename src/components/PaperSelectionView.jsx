@@ -21,6 +21,9 @@ export default function PaperSelectionView({
     if (selectedStream === 'grade6_science') return '6 වසර විද්‍යාව';
     if (selectedStream === 'grade6_sinhala') return '6 වසර සිංහල';
     if (selectedStream === 'grade6_english') return '6 වසර ඉංග්‍රීසි';
+    if (selectedStream === 'grade6_history') return '6 වසර ඉතිහාසය';
+    if (selectedStream === 'grade6_pts') return '6 වසර ප්‍රායෝගික තාක්ෂණික කුසලතා (PTS)';
+    if (selectedStream === 'grade6_religion' || selectedStream === 'grade6_buddhism') return '6 වසර බුද්ධ ධර්මය';
     return 'සාමාන්‍ය ප්‍රශ්න පත්‍ර';
   };
   const displayTitle = paperTitle || getDisplayTitle();
@@ -46,7 +49,7 @@ export default function PaperSelectionView({
           const isPaperUnlocked = availablePaperIds instanceof Set
             ? availablePaperIds.has(paperNumber)
             : (isGrade6
-              ? (selectedStream === 'grade6_oriental_music' ? i < 40 : (selectedStream === 'grade6_science' ? i < 40 : i < 40))
+              ? (selectedStream === 'grade6_oriental_music' ? i < 40 : (selectedStream === 'grade6_science' ? i < 40 : (selectedStream === 'grade6_pts' ? i < 4 : i < 40)))
               : (isGrade5 ? i < 10 : i < 3));
           return (
           <button

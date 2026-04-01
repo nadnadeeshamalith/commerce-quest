@@ -4,19 +4,19 @@ import {
   CircleX, BookOpen, Loader2, Award, 
   ChevronRight, Brain, ArrowLeft, X, LayoutGrid, ListCheck, History, UserCircle,
   ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker, Heart, Flame, Skull, Sparkles, Lock, Unlock, Timer, GraduationCap, Pencil,
-  Camera, Palette, Cpu, Music
+  Camera, Palette, Cpu, Music, MessageSquareHeart
 } from 'lucide-react';
 import { 
   signInAnonymously 
 } from 'firebase/auth';
 
-// Firebase Service Import
 import { auth } from './firebase';
 import { 
   subscribeToLeaderboard, 
   saveUserScore, 
   subscribeToStats, 
-  updateStatsVote 
+  updateStatsVote,
+  saveUserComment
 } from './data/database/database';
 
 const appId = typeof globalThis !== 'undefined' && globalThis.__app_id ? globalThis.__app_id : 'commerce-quest-pro-40';
@@ -33,6 +33,7 @@ import ResultView from './components/ResultView';
 import HistoryView from './components/HistoryView';
 import LeaderboardView from './components/LeaderboardView';
 import Grade6StreamSelect from './components/Grade6StreamSelect';
+import FeedbackModal from './components/FeedbackModal';
 import { grade6SinhalaBank } from './data/grade6/sinhala.js';
 import { englishpaper1 } from './data/grade6/englishpaper1.js';
 import { englishpaper2 } from './data/grade6/englishpaper2.js';
@@ -86,6 +87,168 @@ import { historypaper9 } from './data/grade6/historypaper9.js';
 import { historypaper10 } from './data/grade6/historypaper10.js';
 import { historypaper11 } from './data/grade6/historypaper11.js';
 import { historypaper12 } from './data/grade6/historypaper12.js';
+import { historypaper13 } from './data/grade6/historypaper13.js';
+import { historypaper14 } from './data/grade6/historypaper14.js';
+import { historypaper15 } from './data/grade6/historypaper15.js';
+import { historypaper16 } from './data/grade6/historypaper16.js';
+import { historypaper17 } from './data/grade6/historypaper17.js';
+import { historypaper18 } from './data/grade6/historypaper18.js';
+import { historypaper19 } from './data/grade6/historypaper19.js';
+import { historypaper20 } from './data/grade6/historypaper20.js';
+import { historypaper21 } from './data/grade6/historypaper21.js';
+import { historypaper22 } from './data/grade6/historypaper22.js';
+import { historypaper23 } from './data/grade6/historypaper23.js';
+import { historypaper24 } from './data/grade6/historypaper24.js';
+import { historypaper25 } from './data/grade6/historypaper25.js';
+import { historypaper26 } from './data/grade6/historypaper26.js';
+import { historypaper27 } from './data/grade6/historypaper27.js';
+import { historypaper28 } from './data/grade6/historypaper28.js';
+import { historypaper29 } from './data/grade6/historypaper29.js';
+import { historypaper30 } from './data/grade6/historypaper30.js';
+import { historypaper31 } from './data/grade6/historypaper31.js';
+import { historypaper32 } from './data/grade6/historypaper32.js';
+import { historypaper33 } from './data/grade6/historypaper33.js';
+import { historypaper34 } from './data/grade6/historypaper34.js';
+import { historypaper35 } from './data/grade6/historypaper35.js';
+import { historypaper36 } from './data/grade6/historypaper36.js';
+import { historypaper37 } from './data/grade6/historypaper37.js';
+import { historypaper38 } from './data/grade6/historypaper38.js';
+import { historypaper39 } from './data/grade6/historypaper39.js';
+import { historypaper40 } from './data/grade6/historypaper40.js';
+import { buddhismpaper1 } from './data/grade6/buddhismpaper1.js';
+import { buddhismpaper2 } from './data/grade6/buddhismpaper2.js';
+import { buddhismpaper3 } from './data/grade6/buddhismpaper3.js';
+import { buddhismpaper4 } from './data/grade6/buddhismpaper4.js';
+import { buddhismpaper5 } from './data/grade6/buddhismpaper5.js';
+import { buddhismpaper6 } from './data/grade6/buddhismpaper6.js';
+import { buddhismpaper7 } from './data/grade6/buddhismpaper7.js';
+import { buddhismpaper8 } from './data/grade6/buddhismpaper8.js';
+import { buddhismpaper9 } from './data/grade6/buddhismpaper9.js';
+import { buddhismpaper10 } from './data/grade6/buddhismpaper10.js';
+import { buddhismpaper11 } from './data/grade6/buddhismpaper11.js';
+import { buddhismpaper12 } from './data/grade6/buddhismpaper12.js';
+import { buddhismpaper13 } from './data/grade6/buddhismpaper13.js';
+import { buddhismpaper14 } from './data/grade6/buddhismpaper14.js';
+import { buddhismpaper15 } from './data/grade6/buddhismpaper15.js';
+import { buddhismpaper16 } from './data/grade6/buddhismpaper16.js';
+import { buddhismpaper17 } from './data/grade6/buddhismpaper17.js';
+import { buddhismpaper18 } from './data/grade6/buddhismpaper18.js';
+import { buddhismpaper19 } from './data/grade6/buddhismpaper19.js';
+import { buddhismpaper20 } from './data/grade6/buddhismpaper20.js';
+import { buddhismpaper21 } from './data/grade6/buddhismpaper21.js';
+import { buddhismpaper22 } from './data/grade6/buddhismpaper22.js';
+import { buddhismpaper23 } from './data/grade6/buddhismpaper23.js';
+import { buddhismpaper24 } from './data/grade6/buddhismpaper24.js';
+import { buddhismpaper25 } from './data/grade6/buddhismpaper25.js';
+import { buddhismpaper26 } from './data/grade6/buddhismpaper26.js';
+import { buddhismpaper27 } from './data/grade6/buddhismpaper27.js';
+import { buddhismpaper28 } from './data/grade6/buddhismpaper28.js';
+import { buddhismpaper29 } from './data/grade6/buddhismpaper29.js';
+import { buddhismpaper30 } from './data/grade6/buddhismpaper30.js';
+import { buddhismpaper31 } from './data/grade6/buddhismpaper31.js';
+import { buddhismpaper32 } from './data/grade6/buddhismpaper32.js';
+import { buddhismpaper33 } from './data/grade6/buddhismpaper33.js';
+import { buddhismpaper34 } from './data/grade6/buddhismpaper34.js';
+import { buddhismpaper35 } from './data/grade6/buddhismpaper35.js';
+import { buddhismpaper36 } from './data/grade6/buddhismpaper36.js';
+import { buddhismpaper37 } from './data/grade6/buddhismpaper37.js';
+import { buddhismpaper38 } from './data/grade6/buddhismpaper38.js';
+import { buddhismpaper39 } from './data/grade6/buddhismpaper39.js';
+import { buddhismpaper40 } from './data/grade6/buddhismpaper40.js';
+import { easternmusicpaper1 } from './data/grade6/easternmusicpaper1.js';
+import { easternmusicpaper2 } from './data/grade6/easternmusicpaper2.js';
+import { easternmusicpaper3 } from './data/grade6/easternmusicpaper3.js';
+import { easternmusicpaper4 } from './data/grade6/easternmusicpaper4.js';
+import { easternmusicpaper5 } from './data/grade6/easternmusicpaper5.js';
+import { artpaper1 } from './data/grade6/artpaper1.js';
+import { artpaper2 } from './data/grade6/artpaper2.js';
+import { artpaper3 } from './data/grade6/artpaper3.js';
+import { artpaper4 } from './data/grade6/artpaper4.js';
+import { artpaper5 } from './data/grade6/artpaper5.js';
+import { artpaper6 } from './data/grade6/artpaper6.js';
+import { artpaper7 } from './data/grade6/artpaper7.js';
+import { artpaper8 } from './data/grade6/artpaper8.js';
+import { artpaper9 } from './data/grade6/artpaper9.js';
+import { artpaper10 } from './data/grade6/artpaper10.js';
+import { artpaper11 } from './data/grade6/artpaper11.js';
+import { artpaper12 } from './data/grade6/artpaper12.js';
+import { artpaper13 } from './data/grade6/artpaper13.js';
+import { artpaper14 } from './data/grade6/artpaper14.js';
+import { artpaper15 } from './data/grade6/artpaper15.js';
+import { artpaper16 } from './data/grade6/artpaper16.js';
+import { artpaper17 } from './data/grade6/artpaper17.js';
+import { artpaper18 } from './data/grade6/artpaper18.js';
+import { artpaper19 } from './data/grade6/artpaper19.js';
+import { artpaper20 } from './data/grade6/artpaper20.js';
+import { artpaper21 } from './data/grade6/artpaper21.js';
+import { artpaper22 } from './data/grade6/artpaper22.js';
+import { artpaper23 } from './data/grade6/artpaper23.js';
+import { artpaper24 } from './data/grade6/artpaper24.js';
+import { artpaper25 } from './data/grade6/artpaper25.js';
+import { artpaper26 } from './data/grade6/artpaper26.js';
+import { artpaper27 } from './data/grade6/artpaper27.js';
+import { artpaper28 } from './data/grade6/artpaper28.js';
+import { artpaper29 } from './data/grade6/artpaper29.js';
+import { artpaper30 } from './data/grade6/artpaper30.js';
+import { artpaper31 } from './data/grade6/artpaper31.js';
+import { artpaper32 } from './data/grade6/artpaper32.js';
+import { artpaper33 } from './data/grade6/artpaper33.js';
+import { artpaper34 } from './data/grade6/artpaper34.js';
+import { artpaper35 } from './data/grade6/artpaper35.js';
+import { artpaper36 } from './data/grade6/artpaper36.js';
+import { artpaper37 } from './data/grade6/artpaper37.js';
+import { artpaper38 } from './data/grade6/artpaper38.js';
+import { artpaper39 } from './data/grade6/artpaper39.js';
+import { artpaper40 } from './data/grade6/artpaper40.js';
+import { easternmusicpaper6 } from './data/grade6/easternmusicpaper6.js';
+import { easternmusicpaper7 } from './data/grade6/easternmusicpaper7.js';
+import { easternmusicpaper8 } from './data/grade6/easternmusicpaper8.js';
+import { easternmusicpaper9 } from './data/grade6/easternmusicpaper9.js';
+import { easternmusicpaper10 } from './data/grade6/easternmusicpaper10.js';
+import { easternmusicpaper11 } from './data/grade6/easternmusicpaper11.js';
+import { easternmusicpaper12 } from './data/grade6/easternmusicpaper12.js';
+import { easternmusicpaper13 } from './data/grade6/easternmusicpaper13.js';
+import { easternmusicpaper14 } from './data/grade6/easternmusicpaper14.js';
+import { easternmusicpaper15 } from './data/grade6/easternmusicpaper15.js';
+import { easternmusicpaper16 } from './data/grade6/easternmusicpaper16.js';
+import { easternmusicpaper17 } from './data/grade6/easternmusicpaper17.js';
+import { easternmusicpaper18 } from './data/grade6/easternmusicpaper18.js';
+import { easternmusicpaper19 } from './data/grade6/easternmusicpaper19.js';
+import { easternmusicpaper20 } from './data/grade6/easternmusicpaper20.js';
+import { easternmusicpaper21 } from './data/grade6/easternmusicpaper21.js';
+import { easternmusicpaper22 } from './data/grade6/easternmusicpaper22.js';
+import { easternmusicpaper23 } from './data/grade6/easternmusicpaper23.js';
+import { easternmusicpaper24 } from './data/grade6/easternmusicpaper24.js';
+import { easternmusicpaper25 } from './data/grade6/easternmusicpaper25.js';
+import { easternmusicpaper26 } from './data/grade6/easternmusicpaper26.js';
+import { easternmusicpaper27 } from './data/grade6/easternmusicpaper27.js';
+import { easternmusicpaper28 } from './data/grade6/easternmusicpaper28.js';
+import { easternmusicpaper29 } from './data/grade6/easternmusicpaper29.js';
+import { easternmusicpaper30 } from './data/grade6/easternmusicpaper30.js';
+import { easternmusicpaper31 } from './data/grade6/easternmusicpaper31.js';
+import { easternmusicpaper32 } from './data/grade6/easternmusicpaper32.js';
+import { easternmusicpaper33 } from './data/grade6/easternmusicpaper33.js';
+import { easternmusicpaper34 } from './data/grade6/easternmusicpaper34.js';
+import { easternmusicpaper35 } from './data/grade6/easternmusicpaper35.js';
+import { easternmusicpaper36 } from './data/grade6/easternmusicpaper36.js';
+import { easternmusicpaper37 } from './data/grade6/easternmusicpaper37.js';
+import { easternmusicpaper38 } from './data/grade6/easternmusicpaper38.js';
+import { easternmusicpaper39 } from './data/grade6/easternmusicpaper39.js';
+import { easternmusicpaper40 } from './data/grade6/easternmusicpaper40.js';
+import { ptspaper1 } from './data/grade6/ptspaper1.js';
+import { ptspaper2 } from './data/grade6/ptspaper2.js';
+import { ptspaper3 } from './data/grade6/ptspaper3.js';
+import { ptspaper4 } from './data/grade6/ptspaper4.js';
+import { 
+  grade5paper1, grade5paper2, grade5paper3, grade5paper4, grade5paper5, 
+  grade5paper6, grade5paper7, grade5paper8, grade5paper9, grade5paper10, 
+  grade5paper11, grade5paper12, grade5paper13, grade5paper14, grade5paper15, 
+  grade5paper16, grade5paper17, grade5paper18, grade5paper19, grade5paper20, 
+  grade5paper21, grade5paper22, grade5paper23, grade5paper24, grade5paper25, 
+  grade5paper26, grade5paper27, grade5paper28, grade5paper29, grade5paper30, 
+  grade5paper31, grade5paper32, grade5paper33, grade5paper34, grade5paper35, 
+  grade5paper36, grade5paper37, grade5paper38, grade5paper39, grade5paper40 
+} from './data/grade5/questions.js';
 
 // Data Imports
 import { 
@@ -114,7 +277,8 @@ const getSubjectTitle = (stream) => {
       'grade6_sinhala': '6 වසර සිංහල',
       'grade6_english': '6 වසර ඉංග්‍රීසි',
       'grade6_history': '6 වසර ඉතිහාසය',
-      'grade6_religion': '6 වසර ආගම',
+      'grade6_religion': '6 වසර බුද්ධ ධර්මය',
+      'grade6_buddhism': '6 වසර බුද්ධ ධර්මය',
       'grade6_pts': '6 වසර PTS',
       'grade6_art': '6 වසර චිත්‍ර',
       'grade6_oriental_music': '6 වසර පෙරදිග සංගීතය',
@@ -228,6 +392,7 @@ export default function App() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [isCorrect, setIsCorrect] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -263,23 +428,26 @@ export default function App() {
   const goBack = useCallback(() => {
     setGameStateRaw((prev) => {
       const history = gameStateHistoryRef.current;
+      // Pop states until we find a valid one (skip transient states like 'playing' and 'result')
       while (history.length > 0) {
         const candidate = history.pop();
         if (!candidate) continue;
         if (candidate === 'playing' || candidate === 'result') continue;
         return candidate;
       }
-      return prev;
+      // If no history, go to home
+      return 'home';
     });
   }, []);
 
   const getCurrentBank = useCallback(() => {
-    if (selectedStream === 'grade5') return fullGrade5Bank || [];
+    if (selectedStream === 'grade5') {
+      return Array.from({ length: 40 }, (_, idx) => ({ paperId: idx + 1 }));
+    }
     
     let bank = [];
     if (selectedStream === 'grade6_maths') bank = fullGrade6MathsBank || [];
     else if (selectedStream === 'grade6_science') bank = fullGrade6ScienceBank || [];
-    else if (selectedStream === 'grade6_oriental_music') bank = fullGrade6OrientalMusicBank || [];
     else if (selectedStream === 'grade6_western_music') bank = fullGrade6WesternMusicBank || [];
     else if (selectedStream === 'grade6_sinhala') bank = grade6SinhalaBank || [];
     else if (selectedStream === 'grade6_english') {
@@ -288,8 +456,20 @@ export default function App() {
       bank = Array.from({ length: 40 }, (_, idx) => ({ paperId: idx + 1 }));
     }
     else if (selectedStream === 'grade6_history') {
-      // History currently has papers 1-12.
-      bank = Array.from({ length: 12 }, (_, idx) => ({ paperId: idx + 1 }));
+      // History has papers 1-40.
+      bank = Array.from({ length: 40 }, (_, idx) => ({ paperId: idx + 1 }));
+    }
+    else if (selectedStream === 'grade6_buddhism' || selectedStream === 'grade6_religion') {
+      bank = Array.from({ length: 40 }, (_, idx) => ({ paperId: idx + 1 }));
+    }
+    else if (selectedStream === 'grade6_eastern_music' || selectedStream === 'grade6_oriental_music') {
+      bank = Array.from({ length: 40 }, (_, idx) => ({ paperId: idx + 1 }));
+    }
+    else if (selectedStream === 'grade6_pts') {
+      bank = Array.from({ length: 4 }, (_, idx) => ({ paperId: idx + 1 }));
+    }
+    else if (selectedStream === 'grade6_art') {
+      bank = Array.from({ length: 40 }, (_, idx) => ({ paperId: idx + 1 }));
     }
     else if (selectedStream === 'chemistry' || selectedStream === 'chemistry_maths') bank = fullChemistryBank || [];
     else if (selectedStream === 'physics' || selectedStream === 'physics_maths') bank = fullPhysicsBank || [];
@@ -403,7 +583,60 @@ export default function App() {
     const isPro = String(paperId).startsWith('H');
     let paperQuestions;
 
-    if (selectedStream === 'grade6_english') {
+    if (selectedStream === 'grade5') {
+       const grade5Papers = {
+         1: grade5paper1,
+         2: grade5paper2,
+         3: grade5paper3,
+         4: grade5paper4,
+         5: grade5paper5,
+         6: grade5paper6,
+         7: grade5paper7,
+         8: grade5paper8,
+         9: grade5paper9,
+         10: grade5paper10,
+         11: grade5paper11,
+         12: grade5paper12,
+         13: grade5paper13,
+         14: grade5paper14,
+         15: grade5paper15,
+         16: grade5paper16,
+         17: grade5paper17,
+         18: grade5paper18,
+         19: grade5paper19,
+         20: grade5paper20,
+         21: grade5paper21,
+         22: grade5paper22,
+         23: grade5paper23,
+         24: grade5paper24,
+         25: grade5paper25,
+         26: grade5paper26,
+         27: grade5paper27,
+         28: grade5paper28,
+         29: grade5paper29,
+         30: grade5paper30,
+         31: grade5paper31,
+         32: grade5paper32,
+         33: grade5paper33,
+         34: grade5paper34,
+         35: grade5paper35,
+         36: grade5paper36,
+         37: grade5paper37,
+         38: grade5paper38,
+         39: grade5paper39,
+         40: grade5paper40,
+       };
+       
+       const selectedPaperObj = grade5Papers[paperId];
+
+       if (!selectedPaperObj || selectedPaperObj.length === 0) {
+         alert(`මෙම ප්‍රශ්න පත්‍රය තවමත් සකස් කර නොමැත.`);
+         return;
+       }
+
+       // SHUFFLE THE QUESTIONS so they appear in a random order
+       paperQuestions = [...selectedPaperObj].sort(() => 0.5 - Math.random());
+    } else if (selectedStream === 'grade6_english') {
       const grade6EnglishPapers = {
         1: englishpaper1,
         2: englishpaper2,
@@ -476,6 +709,34 @@ export default function App() {
         10: historypaper10,
         11: historypaper11,
         12: historypaper12,
+        13: historypaper13,
+        14: historypaper14,
+        15: historypaper15,
+        16: historypaper16,
+        17: historypaper17,
+        18: historypaper18,
+        19: historypaper19,
+        20: historypaper20,
+        21: historypaper21,
+        22: historypaper22,
+        23: historypaper23,
+        24: historypaper24,
+        25: historypaper25,
+        26: historypaper26,
+        27: historypaper27,
+        28: historypaper28,
+        29: historypaper29,
+        30: historypaper30,
+        31: historypaper31,
+        32: historypaper32,
+        33: historypaper33,
+        34: historypaper34,
+        35: historypaper35,
+        36: historypaper36,
+        37: historypaper37,
+        38: historypaper38,
+        39: historypaper39,
+        40: historypaper40
       };
 
       const selectedHistoryPaper = grade6HistoryPapers[paperId];
@@ -487,6 +748,182 @@ export default function App() {
 
       // Shuffle so order changes every open.
       paperQuestions = [...selectedHistoryPaper].sort(() => 0.5 - Math.random());
+    } else if (selectedStream === 'grade6_buddhism' || selectedStream === 'grade6_religion') {
+      const grade6BuddhismPapers = {
+        1: buddhismpaper1,
+        2: buddhismpaper2,
+        3: buddhismpaper3,
+        4: buddhismpaper4,
+        5: buddhismpaper5,
+        6: buddhismpaper6,
+        7: buddhismpaper7,
+        8: buddhismpaper8,
+        9: buddhismpaper9,
+        10: buddhismpaper10,
+        11: buddhismpaper11,
+        12: buddhismpaper12,
+        13: buddhismpaper13,
+        14: buddhismpaper14,
+        15: buddhismpaper15,
+        16: buddhismpaper16,
+        17: buddhismpaper17,
+        18: buddhismpaper18,
+        19: buddhismpaper19,
+        20: buddhismpaper20,
+        21: buddhismpaper21,
+        22: buddhismpaper22,
+        23: buddhismpaper23,
+        24: buddhismpaper24,
+        25: buddhismpaper25,
+        26: buddhismpaper26,
+        27: buddhismpaper27,
+        28: buddhismpaper28,
+        29: buddhismpaper29,
+        30: buddhismpaper30,
+        31: buddhismpaper31,
+        32: buddhismpaper32,
+        33: buddhismpaper33,
+        34: buddhismpaper34,
+        35: buddhismpaper35,
+        36: buddhismpaper36,
+        37: buddhismpaper37,
+        38: buddhismpaper38,
+        39: buddhismpaper39,
+        40: buddhismpaper40
+      };
+
+      const selectedBuddhismPaper = grade6BuddhismPapers[paperId];
+
+      if (!selectedBuddhismPaper || selectedBuddhismPaper.length === 0) {
+        alert(`මෙම ප්‍රශ්න පත්‍රය තවමත් සකස් කර නොමැත.`);
+        return;
+      }
+
+      // SHUFFLE THE QUESTIONS so they appear in a random order every time the paper is opened!
+      paperQuestions = [...selectedBuddhismPaper].sort(() => 0.5 - Math.random());
+    } else if (selectedStream === 'grade6_eastern_music' || selectedStream === 'grade6_oriental_music') {
+       const grade6EasternMusicPapers = {
+         1: easternmusicpaper1,
+         2: easternmusicpaper2,
+         3: easternmusicpaper3,
+         4: easternmusicpaper4,
+         5: easternmusicpaper5,
+         6: easternmusicpaper6,
+         7: easternmusicpaper7,
+         8: easternmusicpaper8,
+         9: easternmusicpaper9,
+         10: easternmusicpaper10,
+         11: easternmusicpaper11,
+         12: easternmusicpaper12,
+         13: easternmusicpaper13,
+         14: easternmusicpaper14,
+         15: easternmusicpaper15,
+         16: easternmusicpaper16,
+         17: easternmusicpaper17,
+         18: easternmusicpaper18,
+         19: easternmusicpaper19,
+         20: easternmusicpaper20,
+         21: easternmusicpaper21,
+         22: easternmusicpaper22,
+         23: easternmusicpaper23,
+         24: easternmusicpaper24,
+         25: easternmusicpaper25,
+         26: easternmusicpaper26,
+         27: easternmusicpaper27,
+         28: easternmusicpaper28,
+         29: easternmusicpaper29,
+         30: easternmusicpaper30,
+         31: easternmusicpaper31,
+         32: easternmusicpaper32,
+         33: easternmusicpaper33,
+         34: easternmusicpaper34,
+         35: easternmusicpaper35,
+         36: easternmusicpaper36,
+         37: easternmusicpaper37,
+         38: easternmusicpaper38,
+         39: easternmusicpaper39,
+         40: easternmusicpaper40,
+       };
+       
+       const selectedPaper = grade6EasternMusicPapers[paperId];
+
+       if (!selectedPaper || selectedPaper.length === 0) {
+         alert(`මෙම ප්‍රශ්න පත්‍රය තවමත් සකස් කර නොමැත.`);
+         return;
+       }
+
+       // SHUFFLE THE QUESTIONS so they appear in a random order every time the paper is opened!
+       paperQuestions = [...selectedPaper].sort(() => 0.5 - Math.random());
+    } else if (selectedStream === 'grade6_pts') {
+       const grade6PTSPapers = {
+         1: ptspaper1,
+         2: ptspaper2,
+         3: ptspaper3,
+         4: ptspaper4,
+       };
+       
+       const selectedPaper = grade6PTSPapers[paperId];
+
+       if (!selectedPaper || selectedPaper.length === 0) {
+         alert(`මෙම ප්‍රශ්න පත්‍රය තවමත් සකස් කර නොමැත.`);
+         return;
+       }
+
+       // SHUFFLE THE QUESTIONS
+       paperQuestions = [...selectedPaper].sort(() => 0.5 - Math.random());
+    } else if (selectedStream === 'grade6_art') {
+       const grade6ArtPapers = {
+         1: artpaper1,
+         2: artpaper2,
+         3: artpaper3,
+         4: artpaper4,
+         5: artpaper5,
+         6: artpaper6,
+         7: artpaper7,
+         8: artpaper8,
+         9: artpaper9,
+         10: artpaper10,
+         11: artpaper11,
+         12: artpaper12,
+         13: artpaper13,
+         14: artpaper14,
+         15: artpaper15,
+         16: artpaper16,
+         17: artpaper17,
+         18: artpaper18,
+         19: artpaper19,
+         20: artpaper20,
+         21: artpaper21,
+         22: artpaper22,
+         23: artpaper23,
+         24: artpaper24,
+         25: artpaper25,
+         26: artpaper26,
+         27: artpaper27,
+         28: artpaper28,
+         29: artpaper29,
+         30: artpaper30,
+         31: artpaper31,
+         32: artpaper32,
+         33: artpaper33,
+         34: artpaper34,
+         35: artpaper35,
+         36: artpaper36,
+         37: artpaper37,
+         38: artpaper38,
+         39: artpaper39,
+         40: artpaper40,
+       };
+       
+       const selectedPaper = grade6ArtPapers[paperId];
+
+       if (!selectedPaper || selectedPaper.length === 0) {
+         alert(`මෙම ප්රශ්න පත්රය තවමත් සකස් කර නොමැත.`);
+         return;
+       }
+
+       // SHUFFLE THE QUESTIONS so they appear in a random order every time the paper is opened!
+       paperQuestions = [...selectedPaper].sort(() => 0.5 - Math.random());
     } else if (selectedStream === 'grade6_sinhala') {
       paperQuestions = (activeBank || []).filter((q) => String(q?.paperId) === String(paperId));
     } else {
@@ -696,6 +1133,7 @@ export default function App() {
             setNameConfirmed={setNameConfirmed}
             leaderboard={leaderboard}
             setGrandLeaderboardTab={setGrandLeaderboardTab}
+            setStreamView={setStreamView}
           />
         )}
 
@@ -712,6 +1150,8 @@ export default function App() {
           <Grade6StreamSelect 
             onBack={goBack}
             onStreamSelect={selectStream}
+            view={streamView}
+            setView={setStreamView}
           />
         )}
 
@@ -748,7 +1188,7 @@ export default function App() {
             nextProLevelToPlay={nextProLevelToPlay}
             quizBankReady={(getCurrentBank() || []).length > 0}
             selectPaper={selectPaper} 
-            onBack={() => setGameStateNoHistory('start')}
+            onBack={goBack}
           />
         )}
 
@@ -802,7 +1242,8 @@ export default function App() {
         {gameState === 'history' && (
           <HistoryView 
             userHistory={leaderboard.filter(e => e.name === userName).sort((a, b) => b.timestamp - a.timestamp)} 
-            setGameState={setGameState} 
+            setGameState={setGameState}
+            onBack={goBack}
           />
         )}
 
@@ -816,10 +1257,33 @@ export default function App() {
             displayedLeaderboard={displayedLeaderboard} 
             filteredLeaderboard={filteredLeaderboard} 
             showAllLeaderboard={showAllLeaderboard} 
-            setGameState={setGameState} 
+            setGameState={setGameState}
+            onBack={goBack}
           />
         )}
       </div>
+      
+      {/* Floating Feedback Button */}
+      {nameConfirmed && (
+        <button
+          onClick={() => setIsFeedbackOpen(true)}
+          className="fixed bottom-6 right-6 z-40 bg-indigo-600 hover:bg-indigo-500 text-white p-4 rounded-full shadow-[0_10px_40px_rgba(79,70,229,0.5)] hover:-translate-y-2 transition-all hover:scale-110 group border-2 border-indigo-400/30 flex items-center justify-center animate-in slide-in-from-bottom-8 duration-500"
+          title="අදහස් දැක්වීම"
+        >
+          <MessageSquareHeart className="w-6 h-6 animate-pulse group-hover:animate-none" />
+        </button>
+      )}
+
+      {/* Actual Feedback Modal */}
+      {isFeedbackOpen && (
+        <FeedbackModal 
+          isOpen={isFeedbackOpen}
+          onClose={() => setIsFeedbackOpen(false)}
+          userName={userName}
+          onSubmit={async (data) => await saveUserComment(appId, data)}
+        />
+      )}
+
       <footer className="mt-12 text-center text-slate-800 text-[10px] font-black tracking-[0.5em] uppercase pb-8">EDU QUEST PRO ⬢ 2024</footer>
     </div>
   );

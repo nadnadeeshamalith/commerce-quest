@@ -10,7 +10,8 @@ export default function LeaderboardView({
   displayedLeaderboard,
   filteredLeaderboard,
   showAllLeaderboard,
-  setGameState
+  setGameState,
+  onBack
 }) {
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-[2rem] overflow-hidden animate-in fade-in">
@@ -18,7 +19,7 @@ export default function LeaderboardView({
          <h2 className="text-2xl font-black uppercase tracking-tight flex items-center gap-3 text-white">
            <Trophy className="text-yellow-500" /> සම්පූර්ණ ලකුණු පුවරුව
          </h2>
-         <button onClick={() => setGameState('home')} className="p-2 bg-slate-950 border border-slate-800 rounded-lg hover:text-rose-400 transition-colors text-white"><X /></button>
+         <button onClick={onBack || (() => setGameState('home'))} className="p-2 bg-slate-950 border border-slate-800 rounded-lg hover:text-rose-400 transition-colors text-white"><X /></button>
        </div>
        
        {/* Type Filter */}
@@ -62,7 +63,7 @@ export default function LeaderboardView({
           )}
        </div>
        <div className="p-8 border-t border-slate-800 bg-slate-950/30">
-         <button onClick={() => setGameState('home')} className="w-full bg-slate-800 py-4 rounded-xl font-black hover:bg-slate-700 transition-all text-white">මුල් මෙනුවට</button>
+         <button onClick={onBack || (() => setGameState('home'))} className="w-full bg-slate-800 py-4 rounded-xl font-black hover:bg-slate-700 transition-all text-white">මුල් මෙනුවට</button>
        </div>
     </div>
   );

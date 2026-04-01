@@ -14,7 +14,8 @@ export default function HomeView({
   setGameState,
   setNameConfirmed,
   leaderboard = [],
-  setGrandLeaderboardTab
+  setGrandLeaderboardTab,
+  setStreamView
 }) {
   // Find user's best rank
   const userRank = (() => {
@@ -91,7 +92,7 @@ export default function HomeView({
                   <span className="text-xl font-black text-white">5 වසර</span>
                 </div>
 
-                <div onClick={() => setGameState('grade6_select')} className="cursor-pointer group bg-emerald-900/20 border border-emerald-500/30 rounded-2xl p-6 hover:bg-emerald-600 hover:border-emerald-400 transition-all flex flex-col items-center shadow-lg">
+                <div onClick={() => { setStreamView?.('main'); setGameState('grade6_select'); }} className="cursor-pointer group bg-emerald-900/20 border border-emerald-500/30 rounded-2xl p-6 hover:bg-emerald-600 hover:border-emerald-400 transition-all flex flex-col items-center shadow-lg">
                   <BookOpen className="w-8 h-8 text-emerald-400 group-hover:text-white mb-2" />
                   <span className="text-xl font-black text-white">6 වසර</span>
                 </div>
@@ -104,7 +105,7 @@ export default function HomeView({
                   </div>
                 ))}
 
-                <div onClick={() => setGameState('stream_select')} className="cursor-pointer group bg-indigo-900/20 border border-indigo-500/30 rounded-2xl p-6 hover:bg-indigo-600 hover:border-indigo-400 transition-all flex flex-col items-center shadow-lg col-span-2 md:col-span-1">
+                <div onClick={() => { setStreamView?.('main'); setGameState('stream_select'); }} className="cursor-pointer group bg-indigo-900/20 border border-indigo-500/30 rounded-2xl p-6 hover:bg-indigo-600 hover:border-indigo-400 transition-all flex flex-col items-center shadow-lg col-span-2 md:col-span-1">
                   <GraduationCap className="w-8 h-8 text-indigo-400 group-hover:text-white mb-2" />
                   <span className="text-lg font-black text-white">12 / 13 වසර</span>
                   <span className="text-[10px] text-indigo-300 mt-1 uppercase tracking-widest font-bold">A/L Streams</span>

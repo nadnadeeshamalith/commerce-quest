@@ -7,10 +7,10 @@ import {
 
 export default function Grade6StreamSelect({ 
   onBack = () => {}, 
-  onStreamSelect = () => {} 
+  onStreamSelect = () => {},
+  view = 'main',
+  setView = () => {}
 }) {
-  
-  const [view, setView] = useState('main');
 
   const subjects = [
     { id: 'grade6_maths', name: 'ගණිතය', sub: 'Mathematics', Icon: Calculator, color: 'blue' },
@@ -18,7 +18,7 @@ export default function Grade6StreamSelect({
     { id: 'grade6_sinhala', name: 'සිංහල', sub: 'Sinhala', Icon: BookOpen, color: 'orange' },
     { id: 'grade6_english', name: 'ඉංග්‍රීසි', sub: 'English', Icon: Languages, color: 'pink' },
     { id: 'grade6_history', name: 'ඉතිහාසය', sub: 'History', Icon: Globe, color: 'amber' },
-    { id: 'grade6_religion', name: 'ආගම', sub: 'Religion', Icon: Heart, color: 'rose' },
+    { id: 'grade6_religion', name: 'බුද්ධ ධර්මය', sub: 'Buddhism', Icon: Heart, color: 'rose' },
     { id: 'grade6_pts', name: 'ප්‍රායෝගික තාක්ෂණික කුසලතා', sub: 'PTS', Icon: Monitor, color: 'indigo' },
     { id: 'aesthetic_category', name: 'සෞන්දර්යය', sub: 'Aesthetic', Icon: Music, color: 'violet', isCategory: true }
   ];
