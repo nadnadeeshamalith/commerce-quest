@@ -7,7 +7,7 @@ import {
   Camera, Palette, Cpu, Music, MessageSquareHeart, Code2
 } from 'lucide-react';
 
-import { db, auth } from './firebase';
+import { db } from './firebase.js';
 import {
   collection,
   addDoc,
@@ -17,12 +17,9 @@ import {
   limit,
   serverTimestamp,
   doc,
-  getDoc,
   setDoc,
-  updateDoc,
   increment
 } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
 
 import ALStreamSelect from './components/ALStreamSelect';
 import { playSound } from './components/Helpers';
@@ -653,71 +650,65 @@ export default function App() {
 
   useEffect(() => {
     let unsubLeaderboard = () => {};
-    let unsubStats = () => {};
+    let unsubLikes = () => {};
+    let unsubUnlikes = () => {};
 
-    const init = async () => {
-      try {
-        await signInAnonymously(auth);
-      } catch (e) {
-        console.warn('Anonymous auth (optional):', e);
-      }
+    const likesRef = doc(db, 'stats', 'globalLikes');
+    const unlikesRef = doc(db, 'stats', 'globalUnlikes');
 
-      const statsRef = doc(db, 'stats', 'global');
-      try {
-        const snap = await getDoc(statsRef);
-        if (!snap.exists()) {
-          await setDoc(statsRef, { likes: 0, unlikes: 0 });
-        }
-      } catch (e) {
-        console.warn('Stats doc init:', e);
-      }
+    unsubLikes = onSnapshot(
+      likesRef,
+      (snap) => {
+        const c = snap.exists() ? Number(snap.data().count) || 0 : 0;
+        setLikesCount(c);
+        console.log('[Stats] globalLikes snapshot', c);
+      },
+      (err) => console.error('[Stats] globalLikes listener error:', err)
+    );
 
-      unsubStats = onSnapshot(
-        statsRef,
-        (snap) => {
-          if (snap.exists()) {
-            const d = snap.data();
-            setLikesCount(Number(d.likes) || 0);
-            setUnlikesCount(Number(d.unlikes) || 0);
-          }
-        },
-        (err) => console.warn('Global stats listener:', err)
-      );
+    unsubUnlikes = onSnapshot(
+      unlikesRef,
+      (snap) => {
+        const c = snap.exists() ? Number(snap.data().count) || 0 : 0;
+        setUnlikesCount(c);
+      },
+      (err) => console.error('[Stats] globalUnlikes listener error:', err)
+    );
 
-      const leaderboardQuery = query(
-        collection(db, 'globalLeaderboard'),
-        orderBy('score', 'desc'),
-        limit(50)
-      );
+    const leaderboardQuery = query(
+      collection(db, 'globalLeaderboard'),
+      orderBy('score', 'desc'),
+      limit(50)
+    );
 
-      unsubLeaderboard = onSnapshot(
-        leaderboardQuery,
-        (snap) => {
-          const rows = snap.docs.map((entry) => {
-            const data = entry.data();
-            const ts = data.timestamp;
-            let timestampMs = Date.now();
-            if (ts && typeof ts.toMillis === 'function') timestampMs = ts.toMillis();
-            else if (typeof ts === 'number') timestampMs = ts;
-            return {
-              id: entry.id,
-              ...data,
-              name: data.name ?? data.userName ?? 'Guest',
-              stream: data.stream ?? data.subject ?? 'general',
-              type: data.type ?? 'normal',
-              timestamp: timestampMs
-            };
-          });
-          setLeaderboardData(rows);
-        },
-        (err) => console.warn('Global leaderboard listener:', err)
-      );
-    };
+    unsubLeaderboard = onSnapshot(
+      leaderboardQuery,
+      (snap) => {
+        console.log('[Leaderboard] onSnapshot update, docs:', snap.docs.length);
+        const rows = snap.docs.map((entry) => {
+          const data = entry.data();
+          const ts = data.timestamp;
+          let timestampMs = Date.now();
+          if (ts && typeof ts.toMillis === 'function') timestampMs = ts.toMillis();
+          else if (typeof ts === 'number') timestampMs = ts;
+          return {
+            id: entry.id,
+            ...data,
+            name: data.name ?? data.userName ?? 'Guest',
+            stream: data.stream ?? data.subject ?? 'general',
+            type: data.type ?? 'normal',
+            timestamp: timestampMs
+          };
+        });
+        setLeaderboardData(rows);
+      },
+      (err) => console.error('[Leaderboard] listener error:', err)
+    );
 
-    init();
     return () => {
       unsubLeaderboard();
-      unsubStats();
+      unsubLikes();
+      unsubUnlikes();
     };
   }, []);
 
@@ -1610,56 +1601,101 @@ export default function App() {
     }
   };
 
-  const saveScore = useCallback(async (userNameValue, marks, subject, extra = {}) => {
-    const cleanName = String(userNameValue || '').trim();
-    if (!cleanName) return;
-    await addDoc(collection(db, 'globalLeaderboard'), {
-      userName: cleanName,
-      score: Number(marks) || 0,
-      subject: subject || 'general',
-      timestamp: serverTimestamp(),
-      ...extra
-    });
-  }, []);
+  const handleSaveScore = async (userNameVal, finalScore, totalQs, subjectName, extra = {}) => {
+    try {
+      localStorage.setItem('eduQuestUserName', userNameVal);
+      localStorage.setItem('edu_quest_user_name', userNameVal);
+
+      console.log('[Leaderboard] handleSaveScore called', {
+        userName: userNameVal,
+        score: finalScore,
+        total: totalQs,
+        subject: subjectName,
+        extra
+      });
+
+      await addDoc(collection(db, 'globalLeaderboard'), {
+        name: userNameVal,
+        score: finalScore,
+        total: totalQs,
+        subject: subjectName,
+        timestamp: serverTimestamp(),
+        date: new Date().toLocaleDateString(),
+        ...extra
+      });
+      console.log('Score successfully saved to Firebase!');
+    } catch (error) {
+      console.error('Error saving score to Firebase: ', error);
+      alert('Warning: Could not save to Global Leaderboard. Please check your internet connection.');
+    }
+  };
 
   const persistResultScore = async (isLevelSuccess = true) => {
     const isHardMode = String(selectedPaper).startsWith('H');
-    if (isHardMode && !isLevelSuccess) return;
+    if (isHardMode && !isLevelSuccess) {
+      console.log('[Leaderboard] persistResultScore skipped (hard mode fail)');
+      return;
+    }
+    const totalQs = currentQuestions?.length ?? 0;
+    const subjectLabel = getSubjectTitle(selectedStream);
+
+    console.log('[Leaderboard] persistResultScore triggered', {
+      isLevelSuccess,
+      score,
+      totalQs,
+      selectedStream,
+      subjectLabel
+    });
+
     try {
       let finalName = String(userName || '').trim();
       if (!finalName) {
         const prompted = window.prompt('ඔබගේ නම ඇතුළත් කරන්න (Leaderboard සඳහා):', '');
         finalName = String(prompted || '').trim();
-        if (!finalName) return;
+        if (!finalName) {
+          console.warn('[Leaderboard] No name provided; abort save');
+          return;
+        }
         setUserName(finalName);
         setNameConfirmed(true);
         localStorage.setItem('edu_quest_user_name', finalName);
       }
 
-      await saveScore(finalName, score, selectedStream, {
-        name: finalName,
-        paperId: selectedPaper,
+      await handleSaveScore(finalName, score, totalQs, subjectLabel, {
+        userName: finalName,
         stream: selectedStream,
+        paperId: selectedPaper,
         type: isHardMode ? 'pro' : 'normal'
       });
     } catch (e) {
-      console.error('Save error:', e);
+      console.error('[Leaderboard] persistResultScore error:', e);
+    }
+  };
+
+  const handleLike = async () => {
+    try {
+      const likesRef = doc(db, 'stats', 'globalLikes');
+      await setDoc(likesRef, { count: increment(1) }, { merge: true });
+      console.log('[Stats] Like increment attempted');
+    } catch (error) {
+      console.error('Error updating likes: ', error);
+    }
+  };
+
+  const handleDislike = async () => {
+    try {
+      const unlikesRef = doc(db, 'stats', 'globalUnlikes');
+      await setDoc(unlikesRef, { count: increment(1) }, { merge: true });
+    } catch (error) {
+      console.error('Error updating unlikes: ', error);
     }
   };
 
   const finishAndSaveVote = async (type) => {
     if (userVote) return;
     setUserVote(type);
-    try {
-      const statsRef = doc(db, 'stats', 'global');
-      if (type === 'like') {
-        await updateDoc(statsRef, { likes: increment(1) });
-      } else if (type === 'dislike') {
-        await updateDoc(statsRef, { unlikes: increment(1) });
-      }
-    } catch (e) {
-      console.error('Global vote save error:', e);
-    }
+    if (type === 'like') await handleLike();
+    else if (type === 'dislike') await handleDislike();
   };
 
   const isScience = ['biology', 'chemistry', 'physics', 'agri', 'combined_maths', 'physics_maths', 'chemistry_maths', 'ict_maths'].includes(selectedStream);
