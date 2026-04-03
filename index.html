@@ -3,13 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" content="#0a0a0f">
     <link rel="apple-touch-icon" href="/icon-192x192.png">
+    <style>
+      body {
+        background-color: #0a0a0f;
+        margin: 0;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+      }
+    </style>
     <title>commerce-quest</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div style="background-color: #0a0a0f; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center;">
+        <div style="color: #3b82f6; font-family: sans-serif; font-weight: bold; font-size: 1.5rem; letter-spacing: 0.1em; animation: pulse 2s infinite;">
+          EDU QUEST PRO
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

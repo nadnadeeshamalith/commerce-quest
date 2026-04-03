@@ -1,25 +1,42 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   Trophy, Star, ArrowRight, RefreshCw, CircleCheck, 
   CircleX, BookOpen, Loader2, Award, 
   ChevronRight, Brain, ArrowLeft, X, LayoutGrid, ListCheck, History, UserCircle,
   ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker, Heart, Flame, Skull, Sparkles, Lock, Unlock, Timer, GraduationCap, Pencil,
-  Camera, Palette, Cpu, Music, MessageSquareHeart
+  Camera, Palette, Cpu, Music, MessageSquareHeart, Code2
 } from 'lucide-react';
 import { 
-  signInAnonymously 
+  getAuth,
+  onAuthStateChanged,
+  signInAnonymously,
+  signInWithCustomToken
 } from 'firebase/auth';
+import { getFirestore, collection, addDoc, onSnapshot, query } from 'firebase/firestore';
 
-import { auth } from './firebase';
 import { 
-  subscribeToLeaderboard, 
-  saveUserScore, 
   subscribeToStats, 
   updateStatsVote,
   saveUserComment
 } from './data/database/database';
 
 const appId = typeof globalThis !== 'undefined' && globalThis.__app_id ? globalThis.__app_id : 'commerce-quest-pro-40';
+const firebaseConfig = (() => {
+  const cfg = globalThis?.__firebase_config;
+  if (!cfg) return null;
+  if (typeof cfg === 'string') {
+    try {
+      return JSON.parse(cfg);
+    } catch {
+      return null;
+    }
+  }
+  return cfg;
+})();
+const firebaseApp = firebaseConfig ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null;
+const auth = firebaseApp ? getAuth(firebaseApp) : null;
+const db = firebaseApp ? getFirestore(firebaseApp) : null;
 
 // Component Imports
 import ALStreamSelect from './components/ALStreamSelect';
@@ -646,12 +663,16 @@ export default function App() {
   const [funnyWrongMessage, setFunnyWrongMessage] = useState('');
   const [currentQuestions, setCurrentQuestions] = useState([]);
   const [streamView, setStreamView] = useState('main');
+  const [authReady, setAuthReady] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [isCloudBoardOpen, setIsCloudBoardOpen] = useState(false);
+  const [cloudTopScores, setCloudTopScores] = useState([]);
   const gameStateHistoryRef = useRef([]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2500);
+    }, 3500);
     return () => clearTimeout(timer);
   }, []);
 
@@ -787,28 +808,60 @@ export default function App() {
     }]);
   }, [showFeedback, currentQuestions, currentIndex, selectedOption]);
 
-  // Auth & Sync
+  // Auth first, then Firestore operations (strict order).
   useEffect(() => {
-    try {
-      signInAnonymously(auth).catch(err => console.error("Auth error:", err));
-      
-      const unsubLeaderboard = subscribeToLeaderboard(appId, (data) => {
-        setLeaderboard(data);
-      }, (error) => {
-        console.warn("Leaderboard fetch error (possibly transient):", error);
-      });
+    if (!auth || !db) return undefined;
 
-      const unsubStats = subscribeToStats(appId, (data) => {
-        setTotalLikes(data.likes || 0);
-        setTotalUnlikes(data.unlikes || 0);
-      }, (error) => {
-        console.warn("Stats fetch error (possibly transient):", error);
-      });
+    let unsubscribeLeaderboard = () => {};
+    let unsubscribeStats = () => {};
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setCurrentUserId(user?.uid || '');
+    });
 
-      return () => { unsubLeaderboard(); unsubStats(); };
-    } catch (e) {
-      console.error("Firebase Sync Setup Error:", e);
-    }
+    const init = async () => {
+      try {
+        const customToken = globalThis?.__initial_auth_token;
+        if (customToken) await signInWithCustomToken(auth, customToken);
+        else await signInAnonymously(auth);
+        setAuthReady(true);
+
+        const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+        unsubscribeLeaderboard = onSnapshot(query(leaderboardRef), (snap) => {
+          const rawData = snap.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
+          const normalizedData = rawData.map((entry) => ({
+            ...entry,
+            name: entry.name ?? entry.userName ?? 'Guest',
+            stream: entry.stream ?? entry.subject ?? 'general',
+            type: entry.type ?? 'normal'
+          }));
+
+          setLeaderboard(normalizedData);
+          const sortedCloud = [...normalizedData]
+            .filter((entry) => Number.isFinite(Number(entry.score)))
+            .sort((a, b) => Number(b.score) - Number(a.score))
+            .slice(0, 20);
+          setCloudTopScores(sortedCloud);
+        }, (error) => {
+          console.warn("Leaderboard fetch error (possibly transient):", error);
+        });
+
+        unsubscribeStats = subscribeToStats(appId, (data) => {
+          setTotalLikes(data.likes || 0);
+          setTotalUnlikes(data.unlikes || 0);
+        }, (error) => {
+          console.warn("Stats fetch error (possibly transient):", error);
+        });
+      } catch (e) {
+        console.error("Firebase Sync Setup Error:", e);
+      }
+    };
+
+    init();
+    return () => {
+      unsubscribeLeaderboard();
+      unsubscribeStats();
+      unsubscribeAuth();
+    };
   }, []);
 
   // Timer for PRO Mode
@@ -1545,7 +1598,7 @@ export default function App() {
     const isHardMode = String(selectedPaper).startsWith('H');
     if (isHardMode && !isCorrect) {
       setGameState('result');
-      saveScore(false);
+      persistResultScore(false);
       return;
     }
     if (currentIndex + 1 < currentQuestions.length) {
@@ -1557,18 +1610,41 @@ export default function App() {
       setTimeLeft(nextTime);
     } else {
       setGameState('result');
-      saveScore(true);
+      persistResultScore(true);
     }
   };
 
-  const saveScore = async (isLevelSuccess = true) => {
-    if (!userName || !nameConfirmed) return;
+  const saveScore = useCallback(async (name, marks, subject, extra = {}) => {
+    if (!authReady || !db) return;
+    const cleanName = String(name || '').trim();
+    if (!cleanName) return;
+    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+    await addDoc(leaderboardRef, {
+      userName: cleanName,
+      score: Number(marks) || 0,
+      subject: subject || 'general',
+      timestamp: Date.now(),
+      userId: auth?.currentUser?.uid || currentUserId || 'anonymous',
+      ...extra
+    });
+  }, [authReady, currentUserId]);
+
+  const persistResultScore = async (isLevelSuccess = true) => {
     const isHardMode = String(selectedPaper).startsWith('H');
     if (isHardMode && !isLevelSuccess) return; 
     try {
-      await saveUserScore(appId, {
-        name: userName,
-        score: score,
+      let finalName = String(userName || '').trim();
+      if (!finalName) {
+        const prompted = window.prompt('ඔබගේ නම ඇතුළත් කරන්න (Leaderboard සඳහා):', '');
+        finalName = String(prompted || '').trim();
+        if (!finalName) return;
+        setUserName(finalName);
+        setNameConfirmed(true);
+        localStorage.setItem('edu_quest_user_name', finalName);
+      }
+
+      await saveScore(finalName, score, selectedStream, {
+        name: finalName,
         paperId: selectedPaper,
         stream: selectedStream,
         type: isHardMode ? 'pro' : 'normal'
@@ -1666,17 +1742,36 @@ export default function App() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-[#0a0a0f] flex flex-col items-center justify-center z-50">
-        <div className="relative animate-bounce">
-          <div className="absolute inset-0 bg-blue-500 blur-xl opacity-50 rounded-full"></div>
-          <Brain className="w-20 h-20 text-blue-500 relative z-10 animate-pulse" />
+      <div className="fixed inset-0 bg-[#0a0a0f] flex flex-col items-center justify-center z-50 overflow-hidden">
+        <div className="absolute top-[20%] left-[20%] w-96 h-96 bg-blue-600/20 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-[20%] right-[20%] w-96 h-96 bg-purple-600/20 rounded-full blur-[120px] animate-pulse delay-700"></div>
+
+        <div className="relative group mt-[-40px]">
+          <div className="absolute inset-0 bg-blue-500 blur-2xl opacity-50 group-hover:opacity-100 transition-opacity duration-1000 animate-pulse"></div>
+          <div className="relative bg-[#0a0a0f]/80 backdrop-blur-xl p-7 rounded-3xl border border-blue-500/30 shadow-[0_0_40px_rgba(59,130,246,0.3)] transform transition-transform duration-1000 hover:scale-105">
+            <Brain className="w-24 h-24 text-blue-400 animate-bounce" strokeWidth={1.5} />
+          </div>
         </div>
-        <h1 className="mt-8 text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 animate-pulse">
+
+        <h1 className="mt-10 text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600 drop-shadow-[0_0_15px_rgba(59,130,246,0.5)]">
           EDU QUEST <span className="text-white">PRO</span>
         </h1>
-        <div className="mt-6 flex items-center gap-2 text-gray-400">
-          <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-          <span className="tracking-widest text-sm uppercase font-semibold">Loading Knowledge...</span>
+
+        <div className="mt-8 flex items-center gap-3 text-cyan-400/90 bg-blue-900/20 px-7 py-3 rounded-full border border-blue-500/20 backdrop-blur-md shadow-[0_0_15px_rgba(59,130,246,0.2)]">
+          <Loader2 className="w-5 h-5 animate-spin text-cyan-400" />
+          <span className="tracking-[0.2em] text-xs uppercase font-bold">Initializing Knowledge Core...</span>
+        </div>
+
+        <div className="absolute bottom-10 flex flex-col items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+          <span className="text-gray-500 text-[10px] tracking-[0.3em] uppercase font-semibold flex items-center gap-1">
+            Crafted With <Sparkles className="w-3 h-3 text-yellow-500"/> By
+          </span>
+          <div className="flex items-center gap-2">
+            <Code2 className="w-4 h-4 text-blue-400" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-cyan-200 font-black tracking-widest uppercase text-sm drop-shadow-[0_0_10px_rgba(59,130,246,0.8)]">
+              Nadeesha Malith
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -1704,6 +1799,7 @@ export default function App() {
           <div className="flex gap-2">
             <button onClick={() => setGameState('history')} className="p-3 hover:bg-white/5 rounded-2xl transition-colors text-slate-400 hover:text-white border border-transparent hover:border-white/10"><History className="w-6 h-6" /></button>
             <button onClick={() => setGameState('leaderboard_full')} className="p-3 hover:bg-white/5 rounded-2xl transition-colors text-slate-400 hover:text-white border border-transparent hover:border-white/10"><Trophy className="w-6 h-6" /></button>
+            <button onClick={() => setIsCloudBoardOpen(true)} className="p-3 hover:bg-blue-500/10 rounded-2xl transition-colors text-blue-300 hover:text-white border border-blue-500/20 hover:border-blue-400/40"><Award className="w-6 h-6" /></button>
           </div>
         </header>
 
@@ -1870,6 +1966,49 @@ export default function App() {
           userName={userName}
           onSubmit={async (data) => await saveUserComment(appId, data)}
         />
+      )}
+
+      {isCloudBoardOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl rounded-3xl border border-blue-500/30 bg-[#0a0f18] shadow-[0_0_50px_rgba(59,130,246,0.35)] overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-600/20 to-indigo-600/20">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-blue-500/20 border border-blue-400/40">
+                  <Trophy className="w-5 h-5 text-blue-300" />
+                </div>
+                <div>
+                  <h3 className="text-white font-black tracking-wide">ලකුණු පුවරුව</h3>
+                  <p className="text-xs text-blue-200/80">Live Cloud Leaderboard</p>
+                </div>
+              </div>
+              <button onClick={() => setIsCloudBoardOpen(false)} className="text-slate-300 hover:text-white p-2 rounded-lg hover:bg-white/10">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="max-h-[65vh] overflow-y-auto p-4 space-y-2">
+              {cloudTopScores.length === 0 ? (
+                <div className="text-center py-12 text-slate-400">තවම ලකුණු නොමැත. පළමුව තරඟ කරමු!</div>
+              ) : cloudTopScores.map((entry, idx) => (
+                <div key={entry.id || `${entry.userId || 'u'}-${idx}`} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-200 font-bold text-sm">
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="text-white font-semibold">{entry.userName || entry.name || 'Guest'}</p>
+                      <p className="text-xs text-slate-400">{getSubjectTitle(entry.subject || entry.stream)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-emerald-300 font-black text-lg">{Number(entry.score) || 0}</p>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-500">marks</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
 
       <footer className="mt-12 text-center text-slate-800 text-[10px] font-black tracking-[0.5em] uppercase pb-8">EDU QUEST PRO ⬢ 2024</footer>
