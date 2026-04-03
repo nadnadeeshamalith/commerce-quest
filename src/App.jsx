@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
   Trophy, Star, ArrowRight, RefreshCw, CircleCheck, 
   CircleX, BookOpen, Loader2, Award, 
@@ -7,38 +6,24 @@ import {
   ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker, Heart, Flame, Skull, Sparkles, Lock, Unlock, Timer, GraduationCap, Pencil,
   Camera, Palette, Cpu, Music, MessageSquareHeart, Code2
 } from 'lucide-react';
-import { 
-  getAuth,
-  onAuthStateChanged,
-  signInAnonymously,
-  signInWithCustomToken
-} from 'firebase/auth';
-import { getFirestore, collection, addDoc, onSnapshot, query } from 'firebase/firestore';
 
-import { 
-  subscribeToStats, 
-  updateStatsVote,
-  saveUserComment
-} from './data/database/database';
+import { db, auth } from './firebase';
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  limit,
+  serverTimestamp,
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
+  increment
+} from 'firebase/firestore';
+import { signInAnonymously } from 'firebase/auth';
 
-const appId = typeof globalThis !== 'undefined' && globalThis.__app_id ? globalThis.__app_id : 'commerce-quest-pro-40';
-const firebaseConfig = (() => {
-  const cfg = globalThis?.__firebase_config;
-  if (!cfg) return null;
-  if (typeof cfg === 'string') {
-    try {
-      return JSON.parse(cfg);
-    } catch {
-      return null;
-    }
-  }
-  return cfg;
-})();
-const firebaseApp = firebaseConfig ? (getApps().length ? getApp() : initializeApp(firebaseConfig)) : null;
-const auth = firebaseApp ? getAuth(firebaseApp) : null;
-const db = firebaseApp ? getFirestore(firebaseApp) : null;
-
-// Component Imports
 import ALStreamSelect from './components/ALStreamSelect';
 import { playSound } from './components/Helpers';
 import HomeView from './components/HomeView';
@@ -647,14 +632,14 @@ export default function App() {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [selectedOption, setSelectedOption] = useState(null);
   const [isCorrect, setIsCorrect] = useState(false);
-  const [leaderboard, setLeaderboard] = useState([]);
+  const [leaderboardData, setLeaderboardData] = useState([]);
   const [userName, setUserName] = useState(() => localStorage.getItem('edu_quest_user_name') || '');
   const [nameConfirmed, setNameConfirmed] = useState(() => !!localStorage.getItem('edu_quest_user_name'));
   const [timeLeft, setTimeLeft] = useState(15);
   const [userAnswers, setUserAnswers] = useState([]);
   const [showReview, setShowReview] = useState(false);
-  const [totalLikes, setTotalLikes] = useState(0);
-  const [totalUnlikes, setTotalUnlikes] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
+  const [unlikesCount, setUnlikesCount] = useState(0);
   const [userVote, setUserVote] = useState(null);
   const [grandLeaderboardTab, setGrandLeaderboardTab] = useState('grade5');
   const [leaderboardTab, setLeaderboardTab] = useState('normal');
@@ -663,11 +648,78 @@ export default function App() {
   const [funnyWrongMessage, setFunnyWrongMessage] = useState('');
   const [currentQuestions, setCurrentQuestions] = useState([]);
   const [streamView, setStreamView] = useState('main');
-  const [authReady, setAuthReady] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState('');
   const [isCloudBoardOpen, setIsCloudBoardOpen] = useState(false);
-  const [cloudTopScores, setCloudTopScores] = useState([]);
   const gameStateHistoryRef = useRef([]);
+
+  useEffect(() => {
+    let unsubLeaderboard = () => {};
+    let unsubStats = () => {};
+
+    const init = async () => {
+      try {
+        await signInAnonymously(auth);
+      } catch (e) {
+        console.warn('Anonymous auth (optional):', e);
+      }
+
+      const statsRef = doc(db, 'stats', 'global');
+      try {
+        const snap = await getDoc(statsRef);
+        if (!snap.exists()) {
+          await setDoc(statsRef, { likes: 0, unlikes: 0 });
+        }
+      } catch (e) {
+        console.warn('Stats doc init:', e);
+      }
+
+      unsubStats = onSnapshot(
+        statsRef,
+        (snap) => {
+          if (snap.exists()) {
+            const d = snap.data();
+            setLikesCount(Number(d.likes) || 0);
+            setUnlikesCount(Number(d.unlikes) || 0);
+          }
+        },
+        (err) => console.warn('Global stats listener:', err)
+      );
+
+      const leaderboardQuery = query(
+        collection(db, 'globalLeaderboard'),
+        orderBy('score', 'desc'),
+        limit(50)
+      );
+
+      unsubLeaderboard = onSnapshot(
+        leaderboardQuery,
+        (snap) => {
+          const rows = snap.docs.map((entry) => {
+            const data = entry.data();
+            const ts = data.timestamp;
+            let timestampMs = Date.now();
+            if (ts && typeof ts.toMillis === 'function') timestampMs = ts.toMillis();
+            else if (typeof ts === 'number') timestampMs = ts;
+            return {
+              id: entry.id,
+              ...data,
+              name: data.name ?? data.userName ?? 'Guest',
+              stream: data.stream ?? data.subject ?? 'general',
+              type: data.type ?? 'normal',
+              timestamp: timestampMs
+            };
+          });
+          setLeaderboardData(rows);
+        },
+        (err) => console.warn('Global leaderboard listener:', err)
+      );
+    };
+
+    init();
+    return () => {
+      unsubLeaderboard();
+      unsubStats();
+    };
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -807,62 +859,6 @@ export default function App() {
       isCorrect: correct
     }]);
   }, [showFeedback, currentQuestions, currentIndex, selectedOption]);
-
-  // Auth first, then Firestore operations (strict order).
-  useEffect(() => {
-    if (!auth || !db) return undefined;
-
-    let unsubscribeLeaderboard = () => {};
-    let unsubscribeStats = () => {};
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
-      setCurrentUserId(user?.uid || '');
-    });
-
-    const init = async () => {
-      try {
-        const customToken = globalThis?.__initial_auth_token;
-        if (customToken) await signInWithCustomToken(auth, customToken);
-        else await signInAnonymously(auth);
-        setAuthReady(true);
-
-        const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
-        unsubscribeLeaderboard = onSnapshot(query(leaderboardRef), (snap) => {
-          const rawData = snap.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-          const normalizedData = rawData.map((entry) => ({
-            ...entry,
-            name: entry.name ?? entry.userName ?? 'Guest',
-            stream: entry.stream ?? entry.subject ?? 'general',
-            type: entry.type ?? 'normal'
-          }));
-
-          setLeaderboard(normalizedData);
-          const sortedCloud = [...normalizedData]
-            .filter((entry) => Number.isFinite(Number(entry.score)))
-            .sort((a, b) => Number(b.score) - Number(a.score))
-            .slice(0, 20);
-          setCloudTopScores(sortedCloud);
-        }, (error) => {
-          console.warn("Leaderboard fetch error (possibly transient):", error);
-        });
-
-        unsubscribeStats = subscribeToStats(appId, (data) => {
-          setTotalLikes(data.likes || 0);
-          setTotalUnlikes(data.unlikes || 0);
-        }, (error) => {
-          console.warn("Stats fetch error (possibly transient):", error);
-        });
-      } catch (e) {
-        console.error("Firebase Sync Setup Error:", e);
-      }
-    };
-
-    init();
-    return () => {
-      unsubscribeLeaderboard();
-      unsubscribeStats();
-      unsubscribeAuth();
-    };
-  }, []);
 
   // Timer for PRO Mode
   useEffect(() => {
@@ -1614,24 +1610,21 @@ export default function App() {
     }
   };
 
-  const saveScore = useCallback(async (name, marks, subject, extra = {}) => {
-    if (!authReady || !db) return;
-    const cleanName = String(name || '').trim();
+  const saveScore = useCallback(async (userNameValue, marks, subject, extra = {}) => {
+    const cleanName = String(userNameValue || '').trim();
     if (!cleanName) return;
-    const leaderboardRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
-    await addDoc(leaderboardRef, {
+    await addDoc(collection(db, 'globalLeaderboard'), {
       userName: cleanName,
       score: Number(marks) || 0,
       subject: subject || 'general',
-      timestamp: Date.now(),
-      userId: auth?.currentUser?.uid || currentUserId || 'anonymous',
+      timestamp: serverTimestamp(),
       ...extra
     });
-  }, [authReady, currentUserId]);
+  }, []);
 
   const persistResultScore = async (isLevelSuccess = true) => {
     const isHardMode = String(selectedPaper).startsWith('H');
-    if (isHardMode && !isLevelSuccess) return; 
+    if (isHardMode && !isLevelSuccess) return;
     try {
       let finalName = String(userName || '').trim();
       if (!finalName) {
@@ -1649,15 +1642,24 @@ export default function App() {
         stream: selectedStream,
         type: isHardMode ? 'pro' : 'normal'
       });
-    } catch (e) { console.error("Save error:", e); }
+    } catch (e) {
+      console.error('Save error:', e);
+    }
   };
 
   const finishAndSaveVote = async (type) => {
     if (userVote) return;
     setUserVote(type);
     try {
-      await updateStatsVote(appId, type);
-    } catch (e) { console.error("Vote error:", e); }
+      const statsRef = doc(db, 'stats', 'global');
+      if (type === 'like') {
+        await updateDoc(statsRef, { likes: increment(1) });
+      } else if (type === 'dislike') {
+        await updateDoc(statsRef, { unlikes: increment(1) });
+      }
+    } catch (e) {
+      console.error('Global vote save error:', e);
+    }
   };
 
   const isScience = ['biology', 'chemistry', 'physics', 'agri', 'combined_maths', 'physics_maths', 'chemistry_maths', 'ict_maths'].includes(selectedStream);
@@ -1686,13 +1688,13 @@ export default function App() {
   else if (isCommerce) { themeColor = 'blue'; ThemeIcon = Calculator; }
 
   const nextProLevelToPlay = (() => {
-    const userInLeaderboard = leaderboard.filter(e => e.name === userName && e.type === 'pro' && e.stream === selectedStream);
+    const userInLeaderboard = leaderboardData.filter(e => e.name === userName && e.type === 'pro' && e.stream === selectedStream);
     if (userInLeaderboard.length === 0) return 1;
     const maxLvl = Math.max(...userInLeaderboard.map(e => parseInt(String(e.paperId).replace('H',''))));
     return maxLvl + 1;
   })();
 
-  const hardModeChamp = [...leaderboard]
+  const hardModeChamp = [...leaderboardData]
     .filter(e => e.type === 'pro')
     .sort((a,b) => {
        const lvlA = parseInt(String(a.paperId).replace('H',''));
@@ -1700,7 +1702,7 @@ export default function App() {
        return lvlB - lvlA;
     })[0];
 
-  const filteredLeaderboard = leaderboard
+  const filteredLeaderboard = leaderboardData
     .filter(e => e.type === leaderboardTab)
     .filter(e => !selectedStream || e.stream === selectedStream)
     .reduce((acc, current) => {
@@ -1805,8 +1807,8 @@ export default function App() {
 
         {gameState === 'home' && (
           <HomeView 
-            totalLikes={totalLikes} 
-            totalUnlikes={totalUnlikes} 
+            totalLikes={likesCount} 
+            totalUnlikes={unlikesCount} 
             hardModeChamp={hardModeChamp} 
             userName={userName} 
             nameConfirmed={nameConfirmed} 
@@ -1815,7 +1817,7 @@ export default function App() {
             selectStream={selectStream} 
             setGameState={setGameState} 
             setNameConfirmed={setNameConfirmed}
-            leaderboard={leaderboard}
+            leaderboard={leaderboardData}
             setGrandLeaderboardTab={setGrandLeaderboardTab}
             setStreamView={setStreamView}
           />
@@ -1841,7 +1843,7 @@ export default function App() {
 
         {gameState === 'grand_leaderboard' && (
           <GrandLeaderboard 
-            leaderboard={leaderboard} 
+            leaderboard={leaderboardData} 
             grandLeaderboardTab={grandLeaderboardTab} 
             setGrandLeaderboardTab={setGrandLeaderboardTab} 
             onBack={goBack} 
@@ -1925,7 +1927,7 @@ export default function App() {
 
         {gameState === 'history' && (
           <HistoryView 
-            userHistory={leaderboard.filter(e => e.name === userName).sort((a, b) => b.timestamp - a.timestamp)} 
+            userHistory={leaderboardData.filter(e => e.name === userName).sort((a, b) => b.timestamp - a.timestamp)} 
             setGameState={setGameState}
             onBack={goBack}
           />
@@ -1964,7 +1966,15 @@ export default function App() {
           isOpen={isFeedbackOpen}
           onClose={() => setIsFeedbackOpen(false)}
           userName={userName}
-          onSubmit={async (data) => await saveUserComment(appId, data)}
+          onSubmit={async (data) => {
+            try {
+              const existing = JSON.parse(localStorage.getItem('eduQuestFeedback') || '[]');
+              existing.push({ ...data, timestamp: Date.now() });
+              localStorage.setItem('eduQuestFeedback', JSON.stringify(existing.slice(-100)));
+            } catch (e) {
+              console.error('Feedback save error:', e);
+            }
+          }}
         />
       )}
 
@@ -1978,7 +1988,7 @@ export default function App() {
                 </div>
                 <div>
                   <h3 className="text-white font-black tracking-wide">ලකුණු පුවරුව</h3>
-                  <p className="text-xs text-blue-200/80">Live Cloud Leaderboard</p>
+                  <p className="text-xs text-blue-200/80">Global leaderboard (live)</p>
                 </div>
               </div>
               <button onClick={() => setIsCloudBoardOpen(false)} className="text-slate-300 hover:text-white p-2 rounded-lg hover:bg-white/10">
@@ -1987,10 +1997,10 @@ export default function App() {
             </div>
 
             <div className="max-h-[65vh] overflow-y-auto p-4 space-y-2">
-              {cloudTopScores.length === 0 ? (
+              {leaderboardData.length === 0 ? (
                 <div className="text-center py-12 text-slate-400">තවම ලකුණු නොමැත. පළමුව තරඟ කරමු!</div>
-              ) : cloudTopScores.map((entry, idx) => (
-                <div key={entry.id || `${entry.userId || 'u'}-${idx}`} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+              ) : leaderboardData.map((entry, idx) => (
+                <div key={`${entry.timestamp || idx}-${entry.userName || entry.name || idx}`} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-200 font-bold text-sm">
                       {idx + 1}

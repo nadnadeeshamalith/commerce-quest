@@ -1,27 +1,16 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { initializeApp } from "firebase/app";
+import { getFirestore } from "firebase/firestore";
+import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCRHB0j1sfZ5WMlUHDcuj60GIZI_AELwaU",
-  authDomain: "commerce-quest-pro-40.firebaseapp.com",
-  projectId: "commerce-quest-pro-40",
-  appId: "1:253657541631:web:65818987019798083a938c"
+  apiKey: "AIzaSyCRHB0j1sfZ5WMlUHDcuj6OGIZI_AELwaU",
+  authDomain: "mylocalfirebaseconfig.firebaseapp.com",
+  projectId: "mylocalfirebaseconfig",
+  storageBucket: "mylocalfirebaseconfig.firebasestorage.app",
+  messagingSenderId: "253657541631",
+  appId: "1:253657541631:web:b9d6c925b5af97ebc195ca"
 };
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-
-/**
- * Initialize Firestore with persistence and optimized connectivity settings
- * - experimentalAutoDetectLongPolling: true helps avoid net::ERR_ABORTED on unstable networks
- * - localCache: enables offline persistence for a smoother user experience
- */
-const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-});
-
-const auth = getAuth(app);
-
-export { db, auth };
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
+export const auth = getAuth(app);
