@@ -49,7 +49,7 @@ export default function PaperSelectionView({
           const isPaperUnlocked = availablePaperIds instanceof Set
             ? availablePaperIds.has(paperNumber)
             : (isGrade6
-              ? (selectedStream === 'grade6_oriental_music' ? i < 40 : (selectedStream === 'grade6_science' ? i < 40 : (selectedStream === 'grade6_pts' ? i < 4 : i < 40)))
+              ? i < 40
               : (isGrade5 ? i < 10 : i < 3));
           return (
           <button
@@ -73,9 +73,7 @@ export default function PaperSelectionView({
          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2 md:gap-3">
             {Array.from({ length: 40 }, (_, i) => {
                const lvlNum = i + 1;
-               const isUnlocked = isGrade6
-                 ? (quizBankReady && (lvlNum >= 31 && lvlNum <= 40 ? (lvlNum <= (nextProLevelToPlay > 30 ? nextProLevelToPlay : 31)) : false))
-                 : (lvlNum <= nextProLevelToPlay);
+               const isUnlocked = quizBankReady && lvlNum <= nextProLevelToPlay;
                return (
                  <button 
                     key={lvlNum} 

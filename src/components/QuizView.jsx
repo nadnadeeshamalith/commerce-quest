@@ -27,18 +27,6 @@ export default function QuizView({
   const question = currentQuestions[currentIndex];
   const displayQuestion = stripQuestionLabel(question?.question);
 
-  // #region agent log
-  if (
-    typeof window !== 'undefined' &&
-    question?.question &&
-    displayQuestion !== question.question &&
-    !window.__eduQuestStripLogged
-  ) {
-    window.__eduQuestStripLogged = true;
-    fetch('http://127.0.0.1:7863/ingest/dc30585a-40ae-491f-8315-b1eef3f05f0a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '2e40c9' }, body: JSON.stringify({ sessionId: '2e40c9', location: 'QuizView.jsx:stripQuestionLabel', message: 'Stripped numeric label from question', data: { before: String(question.question).slice(0, 120), after: String(displayQuestion).slice(0, 120) }, timestamp: Date.now(), hypothesisId: 'H1', runId: 'strip-ui' }) }).catch(() => { });
-  }
-  // #endregion
-
   if (!question) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">

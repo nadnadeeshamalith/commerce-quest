@@ -19,16 +19,6 @@ export default function ResultView({
   selectedPaper,
   selectPaper
 }) {
-  // #region agent log
-  if (typeof window !== 'undefined' && !window.__eduQuestResultStripLogged) {
-    const firstLabeled = (currentQuestions || []).find((q) => /\(\d+\)\s*:/.test(String(q?.question || '')));
-    if (firstLabeled) {
-      window.__eduQuestResultStripLogged = true;
-      fetch('http://127.0.0.1:7863/ingest/dc30585a-40ae-491f-8315-b1eef3f05f0a', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '2e40c9' }, body: JSON.stringify({ sessionId: '2e40c9', location: 'ResultView.jsx:stripQuestionLabel', message: 'Result view has labeled question and strip helper active', data: { before: String(firstLabeled.question).slice(0, 120), after: String(stripQuestionLabel(firstLabeled.question)).slice(0, 120) }, timestamp: Date.now(), hypothesisId: 'H2', runId: 'strip-ui-result' }) }).catch(() => { });
-    }
-  }
-  // #endregion
-
   return (
     <div className="text-center py-12 animate-in zoom-in duration-500 min-h-[80vh]">
        {isHardMode && !isCorrect ? (

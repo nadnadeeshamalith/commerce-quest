@@ -1,0 +1,13 @@
+file:///E:/Website/Commerce/commerce-quest/scripts/generate_grade5_papers.js:41
+    pool.push({
+         ^
+
+TypeError: pool.push is not a function
+    at addQuestion (file:///E:/Website/Commerce/commerce-quest/scripts/generate_grade5_papers.js:41:10)
+    at generateSinhala (file:///E:/Website/Commerce/commerce-quest/scripts/generate_grade5_papers.js:164:9)
+    at file:///E:/Website/Commerce/commerce-quest/scripts/generate_grade5_papers.js:326:1
+    at ModuleJob.run (node:internal/modules/esm/module_job:430:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:661:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5)
+
+Node.js v24.14.0
