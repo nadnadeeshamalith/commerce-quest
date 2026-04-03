@@ -1,24 +1,21 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { 
   Trophy, Star, ArrowRight, RefreshCw, CircleCheck, 
   CircleX, BookOpen, Loader2, Award, 
-  ChevronRight, Brain, ArrowLeft, X, LayoutGrid, ListCheck, History, UserCircle,
+  Brain, ArrowLeft, X, LayoutGrid, ListCheck, History, UserCircle,
   ThumbsUp, ThumbsDown, Microscope, Atom, Calculator, Zap, Beaker, Heart, Flame, Skull, Sparkles, Lock, Unlock, Timer, GraduationCap, Pencil,
-  Camera, Palette, Cpu, Music, MessageSquareHeart, Code2
+  Camera, Palette, Cpu, Music, MessageSquareHeart, Code2, Crown, Medal
 } from 'lucide-react';
 
 import { db } from './firebase.js';
 import {
   collection,
-  addDoc,
   onSnapshot,
-  query,
-  orderBy,
-  limit,
   serverTimestamp,
   doc,
   setDoc,
-  increment
+  increment,
+  getDoc
 } from 'firebase/firestore';
 
 import ALStreamSelect from './components/ALStreamSelect';
@@ -578,6 +575,44 @@ const getSubjectTitle = (stream) => {
   return 'COMMERCE වැඩ්ඩෙක්';
 };
 
+const GRADE_TAB_OPTIONS = [
+  { key: '5', label: 'Grade 5' },
+  { key: '6', label: 'Grade 6' },
+  { key: '7', label: 'Grade 7' },
+  { key: '8', label: 'Grade 8' },
+  { key: '9', label: 'Grade 9' },
+  { key: '10', label: 'Grade 10' },
+  { key: '11', label: 'Grade 11' },
+  { key: '12-13', label: 'A/L (12-13)' }
+];
+
+function ensurePlayerId() {
+  try {
+    let id = localStorage.getItem('edu_quest_player_id');
+    if (!id) {
+      id = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `p_${Date.now()}_${Math.random().toString(36).slice(2, 12)}`;
+      localStorage.setItem('edu_quest_player_id', id);
+    }
+    return id;
+  } catch {
+    return `guest_${Date.now()}`;
+  }
+}
+
+/** Maps current stream to leaderboard grade bucket (Firestore `grade` field). */
+function deriveGradeKey(stream) {
+  if (stream === 'grade5') return '5';
+  if (String(stream).startsWith('grade6_')) return '6';
+  if (stream && !String(stream).startsWith('grade')) return '12-13';
+  try {
+    const saved = localStorage.getItem('edu_last_played_grade');
+    if (saved) return saved;
+  } catch { /* ignore */ }
+  return '6';
+}
+
 // Helper to shuffle array
 const shuffleArray = (array) => {
   if (!array || !Array.isArray(array)) return [];
@@ -645,7 +680,8 @@ export default function App() {
   const [funnyWrongMessage, setFunnyWrongMessage] = useState('');
   const [currentQuestions, setCurrentQuestions] = useState([]);
   const [streamView, setStreamView] = useState('main');
-  const [isCloudBoardOpen, setIsCloudBoardOpen] = useState(false);
+  const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [leaderboardGradeTab, setLeaderboardGradeTab] = useState('6');
   const gameStateHistoryRef = useRef([]);
 
   useEffect(() => {
@@ -675,28 +711,30 @@ export default function App() {
       (err) => console.error('[Stats] globalUnlikes listener error:', err)
     );
 
-    const leaderboardQuery = query(
-      collection(db, 'globalLeaderboard'),
-      orderBy('score', 'desc'),
-      limit(50)
-    );
-
     unsubLeaderboard = onSnapshot(
-      leaderboardQuery,
+      collection(db, 'globalLeaderboard'),
       (snap) => {
         console.log('[Leaderboard] onSnapshot update, docs:', snap.docs.length);
         const rows = snap.docs.map((entry) => {
           const data = entry.data();
-          const ts = data.timestamp;
+          const ts = data.updatedAt ?? data.timestamp;
           let timestampMs = Date.now();
           if (ts && typeof ts.toMillis === 'function') timestampMs = ts.toMillis();
           else if (typeof ts === 'number') timestampMs = ts;
+          const scoreVal = Number(data.score);
+          const proSc = Number(data.proScore);
           return {
             id: entry.id,
             ...data,
             name: data.name ?? data.userName ?? 'Guest',
-            stream: data.stream ?? data.subject ?? 'general',
-            type: data.type ?? 'normal',
+            score: Number.isFinite(scoreVal) ? scoreVal : 0,
+            grade: data.grade ?? '?',
+            isProHero: !!data.isProHero,
+            proScore: Number.isFinite(proSc) ? proSc : 0,
+            maxProLevel: Number(data.maxProLevel) || 0,
+            stream: data.lastStream ?? data.stream ?? data.subject ?? '',
+            type: data.lastGameType ?? data.type ?? 'normal',
+            paperId: data.paperId ?? data.lastPaperId,
             timestamp: timestampMs
           };
         });
@@ -834,7 +872,7 @@ export default function App() {
     setShowFeedback(true);
     
     if (correct) {
-      setScore(prev => prev + 10);
+      setScore(prev => prev + 1);
       playSound('correct');
       const msg = funnyCorrect[Math.floor(Math.random() * funnyCorrect.length)];
       setFunnyCorrectMessage(msg);
@@ -1601,29 +1639,56 @@ export default function App() {
     }
   };
 
-  const handleSaveScore = async (userNameVal, finalScore, totalQs, subjectName, extra = {}) => {
+  const handleSaveScore = async (userNameVal, pointsEarned, subjectName, extra = {}) => {
     try {
+      const grade = deriveGradeKey(selectedStream);
       localStorage.setItem('eduQuestUserName', userNameVal);
       localStorage.setItem('edu_quest_user_name', userNameVal);
+      localStorage.setItem('edu_last_played_grade', grade);
 
-      console.log('[Leaderboard] handleSaveScore called', {
+      const pts = Math.max(0, Number(pointsEarned) || 0);
+      const isPro = extra.type === 'pro';
+      const playerId = ensurePlayerId();
+      const docKey = `${playerId}_${grade}`.replace(/[/\\]/g, '_');
+      const userRef = doc(db, 'globalLeaderboard', docKey);
+
+      console.log('[Leaderboard] handleSaveScore (increment)', {
         userName: userNameVal,
-        score: finalScore,
-        total: totalQs,
-        subject: subjectName,
-        extra
+        pointsThisRound: pts,
+        grade,
+        isPro,
+        docKey,
+        subjectName
       });
 
-      await addDoc(collection(db, 'globalLeaderboard'), {
+      const snap = await getDoc(userRef);
+      const prevMax = snap.exists() ? Number(snap.data().maxProLevel) || 0 : 0;
+      let levelNum = 0;
+      if (isPro && extra.paperId != null) {
+        levelNum = parseInt(String(extra.paperId).replace(/^H/i, ''), 10) || 0;
+      }
+      const newMaxPro = isPro ? Math.max(prevMax, levelNum) : prevMax;
+
+      const payload = {
         name: userNameVal,
-        score: finalScore,
-        total: totalQs,
-        subject: subjectName,
-        timestamp: serverTimestamp(),
-        date: new Date().toLocaleDateString(),
-        ...extra
-      });
-      console.log('Score successfully saved to Firebase!');
+        userName: userNameVal,
+        grade,
+        score: increment(pts),
+        updatedAt: serverTimestamp(),
+        lastSubject: subjectName,
+        lastStream: extra.stream ?? selectedStream ?? null,
+        lastGameType: extra.type ?? 'normal',
+        maxProLevel: newMaxPro,
+        paperId: extra.paperId ?? null
+      };
+
+      if (isPro) {
+        payload.isProHero = true;
+        payload.proScore = increment(pts);
+      }
+
+      await setDoc(userRef, payload, { merge: true });
+      console.log('Score successfully saved to Firebase (accumulated via increment)!');
     } catch (error) {
       console.error('Error saving score to Firebase: ', error);
       alert('Warning: Could not save to Global Leaderboard. Please check your internet connection.');
@@ -1636,13 +1701,13 @@ export default function App() {
       console.log('[Leaderboard] persistResultScore skipped (hard mode fail)');
       return;
     }
-    const totalQs = currentQuestions?.length ?? 0;
+    const pointsEarned = userAnswers.filter((a) => a.isCorrect).length;
     const subjectLabel = getSubjectTitle(selectedStream);
 
     console.log('[Leaderboard] persistResultScore triggered', {
       isLevelSuccess,
-      score,
-      totalQs,
+      pointsEarned,
+      quizScoreState: score,
       selectedStream,
       subjectLabel
     });
@@ -1661,7 +1726,11 @@ export default function App() {
         localStorage.setItem('edu_quest_user_name', finalName);
       }
 
-      await handleSaveScore(finalName, score, totalQs, subjectLabel, {
+      if (pointsEarned === 0) {
+        console.log('[Leaderboard] Zero correct answers this round — still syncing profile metadata only');
+      }
+
+      await handleSaveScore(finalName, pointsEarned, subjectLabel, {
         userName: finalName,
         stream: selectedStream,
         paperId: selectedPaper,
@@ -1724,19 +1793,18 @@ export default function App() {
   else if (isCommerce) { themeColor = 'blue'; ThemeIcon = Calculator; }
 
   const nextProLevelToPlay = (() => {
-    const userInLeaderboard = leaderboardData.filter(e => e.name === userName && e.type === 'pro' && e.stream === selectedStream);
-    if (userInLeaderboard.length === 0) return 1;
-    const maxLvl = Math.max(...userInLeaderboard.map(e => parseInt(String(e.paperId).replace('H',''))));
-    return maxLvl + 1;
+    if (!userName || !selectedStream) return 1;
+    const g = deriveGradeKey(selectedStream);
+    const row = leaderboardData.find(
+      (e) => e.name === userName && e.grade === g && (e.lastStream === selectedStream || e.stream === selectedStream)
+    );
+    const maxLvl = row?.maxProLevel ? Number(row.maxProLevel) : 0;
+    return maxLvl > 0 ? maxLvl + 1 : 1;
   })();
 
   const hardModeChamp = [...leaderboardData]
-    .filter(e => e.type === 'pro')
-    .sort((a,b) => {
-       const lvlA = parseInt(String(a.paperId).replace('H',''));
-       const lvlB = parseInt(String(b.paperId).replace('H',''));
-       return lvlB - lvlA;
-    })[0];
+    .filter((e) => e.isProHero || (e.proScore || 0) > 0 || e.lastGameType === 'pro' || e.type === 'pro')
+    .sort((a, b) => (b.proScore || 0) - (a.proScore || 0) || (b.maxProLevel || 0) - (a.maxProLevel || 0))[0];
 
   const filteredLeaderboard = leaderboardData
     .filter(e => e.type === leaderboardTab)
@@ -1766,6 +1834,27 @@ export default function App() {
     });
 
   const displayedLeaderboard = showAllLeaderboard ? filteredLeaderboard : filteredLeaderboard.slice(0, 5);
+
+  const modalLeaderboardByGrade = useMemo(() => {
+    return [...leaderboardData]
+      .filter((e) => e.grade === leaderboardGradeTab)
+      .sort((a, b) => (b.score || 0) - (a.score || 0));
+  }, [leaderboardData, leaderboardGradeTab]);
+
+  const proHeroesList = useMemo(() => {
+    return [...leaderboardData]
+      .filter((e) => e.isProHero || (e.proScore ?? 0) > 0)
+      .sort((a, b) => (b.proScore || 0) - (a.proScore || 0))
+      .slice(0, 48);
+  }, [leaderboardData]);
+
+  useEffect(() => {
+    if (isLeaderboardOpen) {
+      const tab = deriveGradeKey(selectedStream);
+      setLeaderboardGradeTab(tab);
+      console.log('[Leaderboard] Modal opened, grade tab:', tab);
+    }
+  }, [isLeaderboardOpen, selectedStream]);
 
   if (!isAppLoaded) {
     return (
@@ -1837,7 +1926,7 @@ export default function App() {
           <div className="flex gap-2">
             <button onClick={() => setGameState('history')} className="p-3 hover:bg-white/5 rounded-2xl transition-colors text-slate-400 hover:text-white border border-transparent hover:border-white/10"><History className="w-6 h-6" /></button>
             <button onClick={() => setGameState('leaderboard_full')} className="p-3 hover:bg-white/5 rounded-2xl transition-colors text-slate-400 hover:text-white border border-transparent hover:border-white/10"><Trophy className="w-6 h-6" /></button>
-            <button onClick={() => setIsCloudBoardOpen(true)} className="p-3 hover:bg-blue-500/10 rounded-2xl transition-colors text-blue-300 hover:text-white border border-blue-500/20 hover:border-blue-400/40"><Award className="w-6 h-6" /></button>
+            <button type="button" onClick={() => { console.log('[Leaderboard] Header open modal'); setIsLeaderboardOpen(true); }} className="p-3 hover:bg-blue-500/10 rounded-2xl transition-colors text-blue-300 hover:text-white border border-blue-500/20 hover:border-blue-400/40"><Award className="w-6 h-6" /></button>
           </div>
         </header>
 
@@ -1853,9 +1942,9 @@ export default function App() {
             selectStream={selectStream} 
             setGameState={setGameState} 
             setNameConfirmed={setNameConfirmed}
-            leaderboard={leaderboardData}
             setGrandLeaderboardTab={setGrandLeaderboardTab}
             setStreamView={setStreamView}
+            onOpenLeaderboard={() => setIsLeaderboardOpen(true)}
           />
         )}
 
@@ -2014,44 +2103,176 @@ export default function App() {
         />
       )}
 
-      {isCloudBoardOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl rounded-3xl border border-blue-500/30 bg-[#0a0f18] shadow-[0_0_50px_rgba(59,130,246,0.35)] overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-gradient-to-r from-blue-600/20 to-indigo-600/20">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-xl bg-blue-500/20 border border-blue-400/40">
-                  <Trophy className="w-5 h-5 text-blue-300" />
+      {isLeaderboardOpen && (
+        <div className="fixed inset-0 z-[60] flex flex-col bg-black/80 backdrop-blur-xl">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-white/10 bg-gradient-to-b from-slate-950/95 via-[#0a0f1a]/98 to-slate-950/95 shadow-[0_0_80px_rgba(59,130,246,0.15)] m-2 sm:m-4 rounded-3xl sm:rounded-[2rem]">
+            <header className="shrink-0 border-b border-white/10 bg-white/5 px-4 py-4 sm:px-6">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl border border-amber-400/40 bg-amber-500/10 p-3 shadow-[0_0_24px_rgba(251,191,36,0.35)]">
+                    <Trophy className="h-7 w-7 text-amber-300" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-black tracking-tight text-white sm:text-2xl">Global Leaderboard</h2>
+                    <p className="text-xs font-semibold text-slate-400">Glass ranking hall · {GRADE_TAB_OPTIONS.find((g) => g.key === leaderboardGradeTab)?.label ?? leaderboardGradeTab}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-white font-black tracking-wide">ලකුණු පුවරුව</h3>
-                  <p className="text-xs text-blue-200/80">Global leaderboard (live)</p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLeaderboardOpen(false)}
+                  className="rounded-xl border border-white/10 bg-white/5 p-3 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+                  aria-label="Close leaderboard"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <button onClick={() => setIsCloudBoardOpen(false)} className="text-slate-300 hover:text-white p-2 rounded-lg hover:bg-white/10">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-1 scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                {GRADE_TAB_OPTIONS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => {
+                      console.log('[Leaderboard] Grade tab:', tab.key);
+                      setLeaderboardGradeTab(tab.key);
+                    }}
+                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-black uppercase tracking-wide transition-all ${
+                      leaderboardGradeTab === tab.key
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-[0_0_20px_rgba(59,130,246,0.5)]'
+                        : 'border border-white/10 bg-white/5 text-slate-400 hover:border-white/20 hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </header>
 
-            <div className="max-h-[65vh] overflow-y-auto p-4 space-y-2">
-              {leaderboardData.length === 0 ? (
-                <div className="text-center py-12 text-slate-400">තවම ලකුණු නොමැත. පළමුව තරඟ කරමු!</div>
-              ) : leaderboardData.map((entry, idx) => (
-                <div key={`${entry.timestamp || idx}-${entry.userName || entry.name || idx}`} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-200 font-bold text-sm">
-                      {idx + 1}
-                    </div>
-                    <div>
-                      <p className="text-white font-semibold">{entry.userName || entry.name || 'Guest'}</p>
-                      <p className="text-xs text-slate-400">{getSubjectTitle(entry.subject || entry.stream)}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-emerald-300 font-black text-lg">{Number(entry.score) || 0}</p>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-500">marks</p>
-                  </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
+              {modalLeaderboardByGrade.length === 0 ? (
+                <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-white/15 bg-white/[0.03] py-20 text-center">
+                  <Sparkles className="mb-4 h-10 w-10 text-slate-500" />
+                  <p className="max-w-sm text-slate-400">මෙම ශ්‍රේණියට තවම ලකුණු නැහැ. පළමුවරට ක්‍රීඩා කර global board එක light up කරන්න!</p>
                 </div>
-              ))}
+              ) : (
+                <>
+                  <div className="mx-auto mb-10 flex max-w-3xl flex-row items-end justify-center gap-2 px-2 sm:gap-6">
+                    {/* 2nd */}
+                    <div className="flex w-[30%] max-w-[9rem] flex-col items-center">
+                      {modalLeaderboardByGrade[1] ? (
+                        <>
+                          <Medal className="mb-2 h-8 w-8 text-slate-300 drop-shadow-[0_0_12px_rgba(203,213,225,0.6)]" />
+                          <div className="w-full rounded-t-2xl border-2 border-slate-300/80 bg-gradient-to-b from-slate-700/40 to-slate-900/80 px-2 py-4 text-center shadow-lg animate-in zoom-in duration-500">
+                            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border-2 border-slate-300 bg-slate-800 text-sm font-black text-slate-200">
+                              {(modalLeaderboardByGrade[1].name || '?').slice(0, 2).toUpperCase()}
+                            </div>
+                            <p className="truncate text-xs font-bold text-slate-200">{modalLeaderboardByGrade[1].name}</p>
+                            <p className="mt-1 text-lg font-black text-slate-100">{modalLeaderboardByGrade[1].score}</p>
+                            <p className="text-[10px] font-bold uppercase text-slate-500">pts</p>
+                          </div>
+                          <div className="h-16 w-full rounded-b-lg bg-slate-800/90" />
+                        </>
+                      ) : (
+                        <div className="h-32 w-full rounded-t-2xl border border-dashed border-white/10 bg-white/5" />
+                      )}
+                    </div>
+                    {/* 1st */}
+                    <div className="flex w-[34%] max-w-[11rem] flex-col items-center z-10">
+                      {modalLeaderboardByGrade[0] ? (
+                        <>
+                          <div className="relative mb-2">
+                            <Crown className="h-11 w-11 animate-pulse text-amber-400 drop-shadow-[0_0_20px_rgba(251,191,36,0.9)]" />
+                            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-black">1</span>
+                          </div>
+                          <div className="w-full rounded-t-3xl border-2 border-amber-400 bg-gradient-to-b from-amber-500/30 to-slate-950/90 px-3 py-6 text-center shadow-[0_0_40px_rgba(251,191,36,0.45)] animate-in zoom-in duration-700">
+                            <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full border-2 border-amber-400 bg-amber-900/40 text-lg font-black text-amber-100 shadow-[0_0_24px_rgba(251,191,36,0.5)]">
+                              {(modalLeaderboardByGrade[0].name || '?').slice(0, 2).toUpperCase()}
+                            </div>
+                            <p className="truncate text-sm font-black text-amber-50">{modalLeaderboardByGrade[0].name}</p>
+                            <p className="mt-2 text-2xl font-black text-amber-300">{modalLeaderboardByGrade[0].score}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-amber-200/70">points</p>
+                          </div>
+                          <div className="h-24 w-full rounded-b-xl bg-gradient-to-b from-amber-900/50 to-slate-950" />
+                        </>
+                      ) : (
+                        <div className="h-40 w-full rounded-t-3xl border border-dashed border-amber-500/30" />
+                      )}
+                    </div>
+                    {/* 3rd */}
+                    <div className="flex w-[30%] max-w-[9rem] flex-col items-center">
+                      {modalLeaderboardByGrade[2] ? (
+                        <>
+                          <Medal className="mb-2 h-7 w-7 text-orange-400 drop-shadow-[0_0_10px_rgba(251,146,60,0.5)]" />
+                          <div className="w-full rounded-t-2xl border-2 border-orange-400/70 bg-gradient-to-b from-orange-900/30 to-slate-900/80 px-2 py-4 text-center shadow-lg animate-in zoom-in duration-500">
+                            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full border-2 border-orange-400/80 bg-orange-950/50 text-sm font-black text-orange-200">
+                              {(modalLeaderboardByGrade[2].name || '?').slice(0, 2).toUpperCase()}
+                            </div>
+                            <p className="truncate text-xs font-bold text-orange-100">{modalLeaderboardByGrade[2].name}</p>
+                            <p className="mt-1 text-lg font-black text-orange-300">{modalLeaderboardByGrade[2].score}</p>
+                            <p className="text-[10px] font-bold uppercase text-orange-200/60">pts</p>
+                          </div>
+                          <div className="h-12 w-full rounded-b-lg bg-orange-950/40" />
+                        </>
+                      ) : (
+                        <div className="h-28 w-full rounded-t-2xl border border-dashed border-white/10 bg-white/5" />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mx-auto max-w-2xl space-y-2">
+                    <h3 className="mb-3 text-center text-xs font-black uppercase tracking-[0.25em] text-slate-500">Rank 4+</h3>
+                    {modalLeaderboardByGrade.slice(3).map((entry, i) => {
+                      const rank = i + 4;
+                      return (
+                        <div
+                          key={entry.id || `${entry.name}-${rank}`}
+                          className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 transition-colors hover:bg-gray-800/80"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-sm font-black text-slate-300">{rank}</span>
+                            <div>
+                              <p className="font-bold text-white">{entry.name}</p>
+                              {entry.isProHero ? (
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-purple-300">Pro hero</p>
+                              ) : null}
+                            </div>
+                          </div>
+                          <span className="text-lg font-black text-emerald-400">{entry.score}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <section className="relative mx-auto mt-12 max-w-4xl overflow-hidden rounded-3xl border-2 border-transparent bg-gradient-to-r from-purple-600/40 via-cyan-500/25 to-purple-600/40 p-[2px] shadow-[0_0_32px_rgba(168,85,247,0.35)] animate-pulse">
+                    <div className="rounded-[22px] bg-slate-950/95 px-4 py-6 sm:px-6">
+                      <div className="mb-4 flex flex-wrap items-center justify-center gap-2 text-center">
+                        <Flame className="h-6 w-6 text-orange-400" />
+                        <h3 className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-purple-300 sm:text-xl">
+                          ප්‍රෝ මෝඩ් වීරයින් ⚡
+                        </h3>
+                        <Sparkles className="h-6 w-6 text-yellow-300" />
+                      </div>
+                      {proHeroesList.length === 0 ? (
+                        <p className="text-center text-sm text-slate-500">ප්‍රෝ මෝඩ් domination එකක් පෙන්වන වීරයින් මෙතනට එනවා…</p>
+                      ) : (
+                        <div className="flex gap-3 overflow-x-auto pb-2 pt-2 [scrollbar-width:thin]">
+                          {proHeroesList.map((hero) => (
+                            <div
+                              key={hero.id || hero.name}
+                              className="min-w-[140px] shrink-0 rounded-2xl border border-purple-500/40 bg-purple-950/50 px-4 py-3 text-center shadow-inner"
+                            >
+                              <p className="truncate text-sm font-black text-white">{hero.name}</p>
+                              <p className="text-xs text-purple-200">Pro {hero.proScore ?? 0} pts</p>
+                              <div className="mt-1 flex justify-center gap-1 text-amber-400">
+                                <Flame className="h-4 w-4" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                </>
+              )}
             </div>
           </div>
         </div>

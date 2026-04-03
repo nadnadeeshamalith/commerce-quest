@@ -1,5 +1,5 @@
 import React from 'react';
-import { ThumbsUp, ThumbsDown, Star, Trophy, UserCircle, ArrowRight, BookOpen, Lock, GraduationCap, Flame } from 'lucide-react';
+import { ThumbsUp, ThumbsDown, Star, UserCircle, ArrowRight, BookOpen, Lock, GraduationCap, Flame, ChevronRight } from 'lucide-react';
 import { CrownIcon } from './Icons';
 
 export default function HomeView({
@@ -13,18 +13,10 @@ export default function HomeView({
   selectStream,
   setGameState,
   setNameConfirmed,
-  leaderboard = [],
   setGrandLeaderboardTab,
-  setStreamView
+  setStreamView,
+  onOpenLeaderboard
 }) {
-  // Find user's best rank
-  const userRank = (() => {
-    if (!userName || !leaderboard.length) return null;
-    const sorted = [...leaderboard].sort((a, b) => b.score - a.score);
-    const index = sorted.findIndex(e => e.name === userName);
-    return index !== -1 ? index + 1 : null;
-  })();
-
   const nameGateBackdrop = !nameConfirmed;
 
   return (
@@ -57,26 +49,22 @@ export default function HomeView({
             <Star className="w-5 h-5 fill-yellow-500 text-yellow-500" /> Edu Quest වෙත සාදරයෙන් පිළිගනිමු!
           </div>
 
-          <div
-            onClick={() => nameConfirmed && setGameState('grand_leaderboard')}
-            className={
-              nameConfirmed
-                ? 'cursor-pointer w-full max-w-md mb-8 p-4 rounded-2xl bg-gradient-to-br from-indigo-600/10 to-blue-600/20 border border-indigo-500/20 hover:border-indigo-400 hover:bg-indigo-600/20 transition-all group shadow-xl flex items-center text-left gap-4 animate-in fade-in slide-in-from-top-4'
-                : 'w-full max-w-md mb-8 p-4 rounded-2xl bg-gradient-to-br from-indigo-600/10 to-blue-600/20 border border-indigo-500/20 shadow-xl flex items-center text-left gap-4 animate-in fade-in slide-in-from-top-4'
-            }
+          <button
+            type="button"
+            onClick={() => onOpenLeaderboard?.()}
+            className="group relative mx-auto mb-5 w-full max-w-md overflow-hidden rounded-2xl border border-amber-400/50 bg-gradient-to-r from-amber-600/18 via-yellow-500/12 to-amber-600/18 px-3.5 py-2 shadow-[0_0_16px_rgba(251,191,36,0.22)] backdrop-blur-md transition-all duration-300 hover:shadow-[0_0_26px_rgba(251,191,36,0.38)] hover:scale-[1.02] animate-pulse hover:animate-none"
           >
-            <div className="bg-indigo-500/20 p-2.5 rounded-xl border border-indigo-500/30 group-hover:scale-110 transition-transform shrink-0">
-              <Trophy className="w-5 h-5 text-indigo-400" />
+            <div className="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-r from-amber-400/0 via-amber-300/15 to-amber-400/0 opacity-60 blur-sm" />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+            <div className="relative flex flex-row flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+              <span className="text-base drop-shadow-[0_0_8px_rgba(251,191,36,0.65)] sm:text-lg">🏆</span>
+              <span className="text-center text-xs font-black leading-snug tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-yellow-100 to-amber-200 sm:text-sm">
+                ඔබ පන්තියේ කීවෙනියාද? 🏆
+              </span>
+              <ChevronRight className="hidden h-4 w-4 shrink-0 text-amber-300/90 transition-transform group-hover:translate-x-0.5 sm:block" />
             </div>
-            <div>
-              <h3 className="text-lg font-black text-white leading-tight">
-                {userRank ? `ඔබ දැනට ${userRank} වෙනියා!` : 'ඔබ පන්තියේ කීවෙනියාද?'}
-              </h3>
-              <p className="text-indigo-300/80 font-bold text-xs">
-                {userRank ? 'ඔබේ සම්පූර්ණ විස්තර බැලීමට මෙතැන ක්ලික් කරන්න' : 'දක්ෂයින් අතර ඔබේ ස්ථානය බලන්න ක්ලික් කරන්න'}
-              </p>
-            </div>
-          </div>
+            <p className="relative mt-0.5 text-center text-[9px] font-bold uppercase tracking-[0.16em] text-amber-200/75">Global leaderboard · Live ranks</p>
+          </button>
 
           <h1 className="text-3xl md:text-4xl font-black mb-6 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 drop-shadow-lg text-center leading-tight">
             ඔබේ ශ්‍රේණිය තෝරන්න
