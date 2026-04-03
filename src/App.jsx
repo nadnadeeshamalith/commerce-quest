@@ -620,6 +620,7 @@ const funnyWrong = [
 
 export default function App() {
   const [isAppLoaded] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
   const [gameState, setGameStateRaw] = useState('home'); 
   const [selectedStream, setSelectedStream] = useState(null); 
   const [selectedPaper, setSelectedPaper] = useState(null);
@@ -646,6 +647,13 @@ export default function App() {
   const [currentQuestions, setCurrentQuestions] = useState([]);
   const [streamView, setStreamView] = useState('main');
   const gameStateHistoryRef = useRef([]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const setGameState = useCallback((nextState) => {
     setGameStateRaw((prev) => {
@@ -1655,6 +1663,24 @@ export default function App() {
   }
 
   const nameGateActive = gameState === 'home' && !nameConfirmed;
+
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-[#0a0a0f] flex flex-col items-center justify-center z-50">
+        <div className="relative animate-bounce">
+          <div className="absolute inset-0 bg-blue-500 blur-xl opacity-50 rounded-full"></div>
+          <Brain className="w-20 h-20 text-blue-500 relative z-10 animate-pulse" />
+        </div>
+        <h1 className="mt-8 text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500 animate-pulse">
+          EDU QUEST <span className="text-white">PRO</span>
+        </h1>
+        <div className="mt-6 flex items-center gap-2 text-gray-400">
+          <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+          <span className="tracking-widest text-sm uppercase font-semibold">Loading Knowledge...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] text-slate-200 font-sans selection:bg-blue-500/30">
